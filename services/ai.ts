@@ -21,15 +21,25 @@ export const loadOpenAIKey = async () => {
   
   console.log('Loading OpenAI key...');
   console.log('Env key exists:', !!envApiKey);
+  console.log('Env key value:', envApiKey ? `${envApiKey.substring(0, 10)}...` : 'none');
   console.log('Stored key exists:', !!storedApiKey);
   
   if (apiKey) {
-    openaiClient = new OpenAI({
-      apiKey,
-      dangerouslyAllowBrowser: true,
-    });
-    console.log('OpenAI client initialized successfully');
-    return true;
+    try {
+      openaiClient = new OpenAI({
+        apiKey,
+        dangerouslyAllowBrowser: true,
+      });
+      console.log('OpenAI client initialized successfully');
+      if (envApiKey && !storedApiKey) {
+        await AsyncStorage.setItem(API_KEY_STORAGE, envApiKey);
+        console.log('Saved env API key to storage');
+      }
+      return true;
+    } catch (error) {
+      console.error('Error initializing OpenAI client:', error);
+      return false;
+    }
   }
   console.log('No OpenAI key found');
   return false;

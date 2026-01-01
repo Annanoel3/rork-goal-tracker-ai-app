@@ -1,9 +1,10 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Goal, User, GamificationData, ChatMessage, ThemeMode, NotificationSettings } from '@/types';
 import { calculateLevel, getPointsToNextLevel, POINTS_CONFIG } from '@/constants/gamification';
 import { loadOpenAIKey } from '@/services/ai';
+import { useNotifications } from '@/contexts/NotificationContext';
 
 const STORAGE_KEYS = {
   USER: '@user',
@@ -16,6 +17,7 @@ const STORAGE_KEYS = {
 };
 
 export const [AppProvider, useApp] = createContextHook(() => {
+  const { setUserIdForNotifications } = useNotifications();
   const [user, setUser] = useState<User | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [gamification, setGamification] = useState<GamificationData>({
@@ -37,11 +39,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
   const [hasOnboarded, setHasOnboarded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       console.log('AppContext: Loading data...');
       const openAILoaded = await loadOpenAIKey();
@@ -65,7 +63,13 @@ export const [AppProvider, useApp] = createContextHook(() => {
         AsyncStorage.getItem(STORAGE_KEYS.HAS_ONBOARDED),
       ]);
 
-      if (storedUser) setUser(JSON.parse(storedUser));
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        if (parsedUser.id) {
+          await setUserIdForNotifications(parsedUser.id);
+        }
+      }
       if (storedGoals) setGoals(JSON.parse(storedGoals));
       if (storedGamification) setGamification(JSON.parse(storedGamification));
       if (storedChatHistory) setChatHistory(JSON.parse(storedChatHistory));
@@ -77,7 +81,11 @@ export const [AppProvider, useApp] = createContextHook(() => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [setUserIdForNotifications]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const createUser = async (name: string) => {
     const newUser: User = {
@@ -90,6 +98,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
     };
     setUser(newUser);
     await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(newUser));
+    await setUserIdForNotifications(newUser.id);
     await addPoints(POINTS_CONFIG.PROFILE_SETUP);
   };
 

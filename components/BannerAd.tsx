@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useApp } from '@/contexts/AppContext';
 import { getTheme } from '@/constants/theme';
@@ -9,7 +9,16 @@ export const BannerAd: React.FC = () => {
   const { theme } = useApp();
   const colors = getTheme(theme);
 
-  if (isPremium || isLoading) {
+  if (isPremium) {
+    console.log('BannerAd: Hidden - User has premium subscription');
+    return null;
+  }
+
+  if (isLoading) {
+    return null;
+  }
+
+  if (Platform.OS === 'web') {
     return null;
   }
 
@@ -19,6 +28,9 @@ export const BannerAd: React.FC = () => {
       <View style={[styles.adContent, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
         <Text style={[styles.adText, { color: colors.textSecondary }]}>
           🎯 Remove ads by upgrading to Premium
+        </Text>
+        <Text style={[styles.adSubtext, { color: colors.textTertiary }]}>
+          Production ads require react-native-google-mobile-ads
         </Text>
       </View>
     </View>
@@ -46,5 +58,10 @@ const styles = StyleSheet.create({
   adText: {
     fontSize: 13,
     textAlign: 'center' as const,
+  },
+  adSubtext: {
+    fontSize: 10,
+    textAlign: 'center' as const,
+    marginTop: 4,
   },
 });
