@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,7 +24,11 @@ export default function SettingsScreen() {
   
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
-  const [apiKeyConfigured, setApiKeyConfigured] = useState(isOpenAIInitialized());
+  const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
+
+  useEffect(() => {
+    setApiKeyConfigured(isOpenAIInitialized());
+  }, []);
 
   const handleSaveApiKey = async () => {
     if (!apiKey.trim()) {
