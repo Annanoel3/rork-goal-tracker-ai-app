@@ -1,41 +1,86 @@
-import * as z from "zod";
-import { createTRPCRouter, publicProcedure } from "../create-context";
-import { sendPushNotification, sendPushNotifications } from "@/backend/services/onesignal";
+import { z } from 'zod';
+import { publicProcedure, createTRPCRouter } from '../create-context';
+import {
+  sendNotificationToPlayer,
+  sendNotificationToUser,
+  sendNotificationToPlayers,
+  sendNotificationToUsers,
+} from '../../services/onesignal';
 
 export const notificationsRouter = createTRPCRouter({
-  sendToUser: publicProcedure
+  sendToPlayer: publicProcedure
     .input(
       z.object({
-        expoPushToken: z.string(),
+        playerId: z.string(),
         title: z.string(),
         message: z.string(),
         data: z.record(z.string(), z.any()).optional(),
       })
     )
     .mutation(async ({ input }) => {
-      return await sendPushNotification(
-        input.expoPushToken,
+      const result = await sendNotificationToPlayer(
+        input.playerId,
         input.title,
         input.message,
         input.data
       );
+      return { success: true, result };
+    }),
+
+  sendToUser: publicProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+        title: z.string(),
+        message: z.string(),
+        data: z.record(z.string(), z.any()).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const result = await sendNotificationToUser(
+        input.userId,
+        input.title,
+        input.message,
+        input.data
+      );
+      return { success: true, result };
+    }),
+
+  sendToPlayers: publicProcedure
+    .input(
+      z.object({
+        playerIds: z.array(z.string()),
+        title: z.string(),
+        message: z.string(),
+        data: z.record(z.string(), z.any()).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const result = await sendNotificationToPlayers(
+        input.playerIds,
+        input.title,
+        input.message,
+        input.data
+      );
+      return { success: true, result };
     }),
 
   sendToUsers: publicProcedure
     .input(
       z.object({
-        expoPushTokens: z.array(z.string()),
+        userIds: z.array(z.string()),
         title: z.string(),
         message: z.string(),
         data: z.record(z.string(), z.any()).optional(),
       })
     )
     .mutation(async ({ input }) => {
-      return await sendPushNotifications(
-        input.expoPushTokens,
+      const result = await sendNotificationToUsers(
+        input.userIds,
         input.title,
         input.message,
         input.data
       );
+      return { success: true, result };
     }),
 });

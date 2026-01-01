@@ -15,7 +15,7 @@ export const initializeOpenAI = async (apiKey: string) => {
 };
 
 export const loadOpenAIKey = async () => {
-  const envApiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+  const envApiKey = process.env.OPENAI_API_KEY;
   const storedApiKey = await AsyncStorage.getItem(API_KEY_STORAGE);
   const apiKey = envApiKey || storedApiKey;
   

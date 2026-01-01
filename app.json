@@ -52,8 +52,7 @@
           ],
           "enableBackgroundRemoteNotifications": false
         }
-      ],
-      "onesignal-expo-plugin"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
