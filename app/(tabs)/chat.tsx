@@ -16,6 +16,7 @@ import { Send, Sparkles } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { getTheme } from '@/constants/theme';
 import { chatWithAI, generateGoalFromConversation } from '@/services/ai';
+import { BannerAd } from '@/components/BannerAd';
 import { ChatMessage } from '@/types';
 
 export default function ChatScreen() {
@@ -213,6 +214,7 @@ export default function ChatScreen() {
             <Send color="#FFF" size={20} />
           </Pressable>
         </View>
+        <BannerAd />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

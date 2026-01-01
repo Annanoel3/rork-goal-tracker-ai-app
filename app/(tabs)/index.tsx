@@ -16,6 +16,7 @@ import { getTheme } from '@/constants/theme';
 import { GoalCard } from '@/components/GoalCard';
 import { LevelBadge } from '@/components/LevelBadge';
 import { LevelUpModal } from '@/components/LevelUpModal';
+import { BannerAd } from '@/components/BannerAd';
 
 export default function GoalsScreen() {
   const router = useRouter();
@@ -141,6 +142,8 @@ export default function GoalsScreen() {
           )}
         </View>
       </ScrollView>
+
+      <BannerAd />
 
       <LevelUpModal
         visible={showLevelUpModal}

@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Target, MessageCircle, Trophy, Settings } from "lucide-react-native";
+import { Target, MessageCircle, Trophy, Settings, Crown } from "lucide-react-native";
 import React from "react";
 import { useApp } from "@/contexts/AppContext";
 import { getTheme } from "@/constants/theme";
@@ -40,6 +40,13 @@ export default function TabLayout() {
         options={{
           title: "Leaderboard",
           tabBarIcon: ({ color, size }) => <Trophy color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="subscription"
+        options={{
+          title: "Premium",
+          tabBarIcon: ({ color, size }) => <Crown color={color} size={size} />,
         }}
       />
       <Tabs.Screen
