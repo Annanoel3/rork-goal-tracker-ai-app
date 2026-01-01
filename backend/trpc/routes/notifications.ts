@@ -1,38 +1,38 @@
 import * as z from "zod";
 import { createTRPCRouter, publicProcedure } from "../create-context";
-import { sendNotificationToPlayer, sendNotificationToPlayers } from "@/backend/services/onesignal";
+import { sendPushNotification, sendPushNotifications } from "@/backend/services/onesignal";
 
 export const notificationsRouter = createTRPCRouter({
-  sendToPlayer: publicProcedure
+  sendToUser: publicProcedure
     .input(
       z.object({
-        playerId: z.string(),
+        expoPushToken: z.string(),
         title: z.string(),
         message: z.string(),
         data: z.record(z.string(), z.any()).optional(),
       })
     )
     .mutation(async ({ input }) => {
-      return await sendNotificationToPlayer(
-        input.playerId,
+      return await sendPushNotification(
+        input.expoPushToken,
         input.title,
         input.message,
         input.data
       );
     }),
 
-  sendToPlayers: publicProcedure
+  sendToUsers: publicProcedure
     .input(
       z.object({
-        playerIds: z.array(z.string()),
+        expoPushTokens: z.array(z.string()),
         title: z.string(),
         message: z.string(),
         data: z.record(z.string(), z.any()).optional(),
       })
     )
     .mutation(async ({ input }) => {
-      return await sendNotificationToPlayers(
-        input.playerIds,
+      return await sendPushNotifications(
+        input.expoPushTokens,
         input.title,
         input.message,
         input.data

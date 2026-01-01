@@ -1,78 +1,74 @@
-const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID;
-const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
-
-if (!ONESIGNAL_APP_ID || !ONESIGNAL_REST_API_KEY) {
-  console.error('OneSignal environment variables not set');
+interface PushNotification {
+  to: string;
+  title: string;
+  body: string;
+  data?: Record<string, any>;
+  sound?: string;
+  badge?: number;
 }
 
-export async function sendNotificationToPlayer(
-  playerId: string,
+export async function sendPushNotification(
+  expoPushToken: string,
   title: string,
   message: string,
   data?: Record<string, any>
 ) {
-  if (!ONESIGNAL_APP_ID || !ONESIGNAL_REST_API_KEY) {
-    throw new Error('OneSignal not configured');
-  }
+  const notification: PushNotification = {
+    to: expoPushToken,
+    title,
+    body: message,
+    data: data || {},
+    sound: 'default',
+  };
 
-  const response = await fetch('https://onesignal.com/api/v1/notifications', {
+  const response = await fetch('https://exp.host/--/api/v2/push/send', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Basic ${ONESIGNAL_REST_API_KEY}`,
     },
-    body: JSON.stringify({
-      app_id: ONESIGNAL_APP_ID,
-      include_player_ids: [playerId],
-      headings: { en: title },
-      contents: { en: message },
-      data: data || {},
-    }),
+    body: JSON.stringify(notification),
   });
 
   const result = await response.json();
   
   if (!response.ok) {
-    console.error('OneSignal error:', result);
+    console.error('Expo push notification error:', result);
     throw new Error(`Failed to send notification: ${JSON.stringify(result)}`);
   }
 
-  console.log('OneSignal notification sent:', result);
+  console.log('Push notification sent:', result);
   return result;
 }
 
-export async function sendNotificationToPlayers(
-  playerIds: string[],
+export async function sendPushNotifications(
+  expoPushTokens: string[],
   title: string,
   message: string,
   data?: Record<string, any>
 ) {
-  if (!ONESIGNAL_APP_ID || !ONESIGNAL_REST_API_KEY) {
-    throw new Error('OneSignal not configured');
-  }
+  const notifications = expoPushTokens.map(token => ({
+    to: token,
+    title,
+    body: message,
+    data: data || {},
+    sound: 'default',
+  }));
 
-  const response = await fetch('https://onesignal.com/api/v1/notifications', {
+  const response = await fetch('https://exp.host/--/api/v2/push/send', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Basic ${ONESIGNAL_REST_API_KEY}`,
     },
-    body: JSON.stringify({
-      app_id: ONESIGNAL_APP_ID,
-      include_player_ids: playerIds,
-      headings: { en: title },
-      contents: { en: message },
-      data: data || {},
-    }),
+    body: JSON.stringify(notifications),
   });
 
   const result = await response.json();
   
   if (!response.ok) {
-    console.error('OneSignal error:', result);
-    throw new Error(`Failed to send notification: ${JSON.stringify(result)}`);
+    console.error('Expo push notification error:', result);
+    throw new Error(`Failed to send notifications: ${JSON.stringify(result)}`);
   }
 
-  console.log('OneSignal notification sent:', result);
+  console.log('Push notifications sent:', result);
   return result;
 }

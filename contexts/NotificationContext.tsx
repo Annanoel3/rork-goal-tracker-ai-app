@@ -2,97 +2,104 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useEffect, useState, useCallback } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 
-const PLAYER_ID_STORAGE = '@onesignal_player_id';
+const PUSH_TOKEN_STORAGE = '@push_token';
+const USER_ID_STORAGE = '@notification_user_id';
 
-const ONESIGNAL_APP_ID = process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID;
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 export const [NotificationProvider, useNotifications] = createContextHook(() => {
-  const [playerId, setPlayerId] = useState<string | null>(null);
+  const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  const initializeOneSignal = useCallback(async () => {
+  const registerForPushNotifications = useCallback(async () => {
     try {
-      const storedPlayerId = await AsyncStorage.getItem(PLAYER_ID_STORAGE);
-      if (storedPlayerId) {
-        setPlayerId(storedPlayerId);
-        console.log('Loaded stored OneSignal player ID:', storedPlayerId);
+      const storedToken = await AsyncStorage.getItem(PUSH_TOKEN_STORAGE);
+      const storedUserId = await AsyncStorage.getItem(USER_ID_STORAGE);
+      
+      if (storedToken) {
+        setExpoPushToken(storedToken);
+        console.log('Loaded stored push token:', storedToken);
       }
-
-      if (!ONESIGNAL_APP_ID) {
-        console.error('OneSignal App ID not configured');
-        return;
+      
+      if (storedUserId) {
+        setUserId(storedUserId);
       }
 
       if (Platform.OS === 'web') {
-        console.log('OneSignal: Web platform detected');
-        await initializeOneSignalWeb();
-      } else {
-        console.log('OneSignal: Native platform, using REST API only');
+        console.log('Push notifications not supported on web');
+        setIsInitialized(true);
+        return;
       }
+
+      if (!Device.isDevice) {
+        console.log('Push notifications only work on physical devices');
+        setIsInitialized(true);
+        return;
+      }
+
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      
+      if (finalStatus !== 'granted') {
+        console.log('Failed to get push notification permissions');
+        setIsInitialized(true);
+        return;
+      }
+
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+      const token = await Notifications.getExpoPushTokenAsync({ projectId });
+      
+      setExpoPushToken(token.data);
+      await AsyncStorage.setItem(PUSH_TOKEN_STORAGE, token.data);
+      console.log('Expo Push Token:', token.data);
 
       setIsInitialized(true);
     } catch (error) {
-      console.error('Error initializing OneSignal:', error);
+      console.error('Error registering for push notifications:', error);
+      setIsInitialized(true);
     }
   }, []);
 
   useEffect(() => {
-    initializeOneSignal();
-  }, [initializeOneSignal]);
+    registerForPushNotifications();
+  }, [registerForPushNotifications]);
 
-  const initializeOneSignalWeb = async () => {
-    if (typeof window === 'undefined') return;
-
-    const script = document.createElement('script');
-    script.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
-    script.defer = true;
-    document.head.appendChild(script);
-
-    script.onload = async () => {
-      try {
-        const OneSignal = (window as any).OneSignal;
-        if (!OneSignal) return;
-
-        await OneSignal.init({ appId: ONESIGNAL_APP_ID });
-        
-        OneSignal.User.PushSubscription.addEventListener('change', (event: any) => {
-          console.log('OneSignal subscription changed:', event);
-          if (event.current.id) {
-            setPlayerId(event.current.id);
-            AsyncStorage.setItem(PLAYER_ID_STORAGE, event.current.id);
-            console.log('OneSignal Player ID:', event.current.id);
-          }
-        });
-
-        const userId = await OneSignal.User.getExternalId();
-        if (userId) {
-          setPlayerId(userId);
-          await AsyncStorage.setItem(PLAYER_ID_STORAGE, userId);
-        }
-      } catch (error) {
-        console.error('Error initializing OneSignal Web SDK:', error);
-      }
-    };
-  };
-
-  const setExternalUserId = async (userId: string) => {
+  const setUserIdForNotifications = useCallback(async (newUserId: string) => {
     try {
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        const OneSignal = (window as any).OneSignal;
-        if (OneSignal) {
-          await OneSignal.login(userId);
-          console.log('OneSignal external user ID set:', userId);
-        }
+      setUserId(newUserId);
+      await AsyncStorage.setItem(USER_ID_STORAGE, newUserId);
+      console.log('User ID set for notifications:', newUserId);
+      
+      if (expoPushToken) {
+        console.log('Ready to send notifications to user:', newUserId, 'with token:', expoPushToken);
       }
     } catch (error) {
-      console.error('Error setting external user ID:', error);
+      console.error('Error setting user ID:', error);
     }
-  };
+  }, [expoPushToken]);
 
   return {
-    playerId,
+    expoPushToken,
+    userId,
     isInitialized,
-    setExternalUserId,
+    setUserIdForNotifications,
   };
 });
