@@ -43,7 +43,9 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
   const loadData = async () => {
     try {
-      await loadOpenAIKey();
+      console.log('AppContext: Loading data...');
+      const openAILoaded = await loadOpenAIKey();
+      console.log('AppContext: OpenAI loaded:', openAILoaded);
       
       const [
         storedUser,

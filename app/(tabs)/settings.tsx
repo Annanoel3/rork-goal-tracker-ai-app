@@ -15,11 +15,14 @@ import { Settings2, Palette, Bell, Key, FileText, Shield, ChevronRight } from 'l
 import { useApp } from '@/contexts/AppContext';
 import { getTheme } from '@/constants/theme';
 import { ThemeMode } from '@/types';
-import { initializeOpenAI, isOpenAIInitialized } from '@/services/ai';
+import { initializeOpenAI, getOpenAIStatus } from '@/services/ai';
 import { LevelBadge } from '@/components/LevelBadge';
+import { BannerAd } from '@/components/BannerAd';
+import { useNotifications } from '@/contexts/NotificationContext';
 
 export default function SettingsScreen() {
   const { user, theme, updateTheme, notifications, updateNotifications } = useApp();
+  const { playerId, userId } = useNotifications();
   const colors = getTheme(theme);
   
   const [apiKey, setApiKey] = useState('');
@@ -27,7 +30,15 @@ export default function SettingsScreen() {
   const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
 
   useEffect(() => {
-    setApiKeyConfigured(isOpenAIInitialized());
+    const checkStatus = () => {
+      const status = getOpenAIStatus();
+      console.log('Settings: OpenAI status', status);
+      setApiKeyConfigured(status.isInitialized);
+    };
+    checkStatus();
+    
+    const interval = setInterval(checkStatus, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleSaveApiKey = async () => {
@@ -277,8 +288,31 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Push Notifications Debug</Text>
+          <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>            <View style={styles.settingRow}>
+              <Text style={[styles.debugText, { color: colors.textSecondary }]}>
+                Player ID: {playerId || 'Not registered'}
+              </Text>
+            </View>
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={styles.settingRow}>
+              <Text style={[styles.debugText, { color: colors.textSecondary }]}>
+                User ID: {userId || 'Not set'}
+              </Text>
+            </View>
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={styles.settingRow}>
+              <Text style={[styles.debugText, { color: colors.textSecondary }]}>
+                OneSignal App ID: {process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID ? '✓ Configured' : '✗ Not configured'}
+              </Text>
+            </View>
+          </View>
+        </View>
+
         <Text style={[styles.version, { color: colors.textTertiary }]}>Version 1.0.0</Text>
       </ScrollView>
+      <BannerAd />
     </SafeAreaView>
   );
 }
@@ -419,5 +453,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center' as const,
     marginTop: 8,
+  },
+  debugText: {
+    fontSize: 13,
+    fontFamily: 'monospace' as const,
   },
 });

@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Trophy, Crown, Medal, Award, Lock } from 'lucide-react-native';
+import { BannerAd } from '@/components/BannerAd';
 import { useApp } from '@/contexts/AppContext';
 import { getTheme } from '@/constants/theme';
 import { LevelBadge } from '@/components/LevelBadge';
@@ -140,6 +141,7 @@ export default function LeaderboardScreen() {
           </View>
         </View>
       </ScrollView>
+      <BannerAd />
     </SafeAreaView>
   );
 }

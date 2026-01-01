@@ -19,17 +19,34 @@ export const loadOpenAIKey = async () => {
   const storedApiKey = await AsyncStorage.getItem(API_KEY_STORAGE);
   const apiKey = envApiKey || storedApiKey;
   
+  console.log('Loading OpenAI key...');
+  console.log('Env key exists:', !!envApiKey);
+  console.log('Stored key exists:', !!storedApiKey);
+  
   if (apiKey) {
     openaiClient = new OpenAI({
       apiKey,
       dangerouslyAllowBrowser: true,
     });
+    console.log('OpenAI client initialized successfully');
     return true;
   }
+  console.log('No OpenAI key found');
   return false;
 };
 
-export const isOpenAIInitialized = () => openaiClient !== null;
+export const isOpenAIInitialized = () => {
+  const hasEnvKey = !!process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+  const hasClient = openaiClient !== null;
+  console.log('Checking OpenAI status - env key:', hasEnvKey, 'client:', hasClient);
+  return hasEnvKey || hasClient;
+};
+
+export const getOpenAIStatus = () => ({
+  hasEnvKey: !!process.env.EXPO_PUBLIC_OPENAI_API_KEY,
+  hasClient: openaiClient !== null,
+  isInitialized: isOpenAIInitialized(),
+});
 
 const SYSTEM_PROMPT = `You are an enthusiastic and supportive AI goal coach. Your role is to:
 1. Help users define clear, achievable goals

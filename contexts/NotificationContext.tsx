@@ -128,6 +128,31 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
     registerForPushNotifications();
   }, [registerForPushNotifications]);
 
+  const updatePlayerExternalUserId = useCallback(async (newUserId: string) => {
+    if (!playerId || !process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID) {
+      console.log('Cannot update external user ID - player not registered');
+      return false;
+    }
+
+    try {
+      const response = await fetch(`https://onesignal.com/api/v1/players/${playerId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          app_id: process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID,
+          external_user_id: newUserId,
+        }),
+      });
+      
+      const result = await response.json();
+      console.log('OneSignal external user ID update result:', result);
+      return response.ok;
+    } catch (error) {
+      console.error('Error updating external user ID:', error);
+      return false;
+    }
+  }, [playerId]);
+
   const setUserIdForNotifications = useCallback(async (newUserId: string) => {
     try {
       setUserId(newUserId);
@@ -164,5 +189,6 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
     userId,
     isInitialized,
     setUserIdForNotifications,
+    updatePlayerExternalUserId,
   };
 });

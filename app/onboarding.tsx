@@ -15,13 +15,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Send, Sparkles } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { getTheme } from '@/constants/theme';
 import { chatWithAI, generateGoalFromConversation } from '@/services/ai';
 import { ChatMessage } from '@/types';
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { createUser, addGoal, addChatMessage, completeOnboarding, theme } = useApp();
+  const { createUser, addGoal, addChatMessage, completeOnboarding, theme, user } = useApp();
+  const { setUserIdForNotifications } = useNotifications();
   const colors = getTheme(theme);
 
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -84,6 +86,7 @@ export default function OnboardingScreen() {
         };
         setMessages([...newMessages, assistantMessage]);
         setConversationStage('goal');
+        setIsLoading(false);
       } else {
         const conversationHistory = newMessages.map(m => ({
           role: m.role as 'user' | 'assistant',
@@ -142,6 +145,13 @@ export default function OnboardingScreen() {
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
+
+  useEffect(() => {
+    if (user?.id) {
+      console.log('Onboarding: Setting OneSignal user ID:', user.id);
+      setUserIdForNotifications(user.id);
+    }
+  }, [user?.id, setUserIdForNotifications]);
 
   const spin = logoRotate.interpolate({
     inputRange: [0, 1],
