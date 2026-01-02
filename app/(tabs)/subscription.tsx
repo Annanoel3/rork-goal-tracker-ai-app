@@ -222,15 +222,15 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   header: {
-    alignItems: 'center' as const,
+    alignItems: 'center',
     marginBottom: 32,
   },
   iconContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -240,20 +240,20 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    fontWeight: '800' as const,
+    fontWeight: '800',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    textAlign: 'center' as const,
+    textAlign: 'center',
   },
   featuresSection: {
     gap: 12,
     marginBottom: 32,
   },
   featureCard: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
   },
   featureTitle: {
     fontSize: 16,
-    fontWeight: '600' as const,
+    fontWeight: '600',
     marginBottom: 2,
   },
   featureDescription: {
@@ -278,10 +278,10 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 16,
     borderWidth: 2,
-    position: 'relative' as const,
+    position: 'relative',
   },
   bestValueBadge: {
-    position: 'absolute' as const,
+    position: 'absolute',
     top: -10,
     right: 20,
     backgroundColor: '#FF6B6B',
@@ -292,17 +292,17 @@ const styles = StyleSheet.create({
   bestValueText: {
     color: '#FFF',
     fontSize: 11,
-    fontWeight: '700' as const,
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
   packageTitle: {
     fontSize: 20,
-    fontWeight: '700' as const,
+    fontWeight: '700',
     marginBottom: 4,
   },
   packagePrice: {
     fontSize: 28,
-    fontWeight: '800' as const,
+    fontWeight: '800',
     marginBottom: 4,
   },
   packageDescription: {
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
   subscribeButton: {
     paddingVertical: 18,
     borderRadius: 12,
-    alignItems: 'center' as const,
+    alignItems: 'center',
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -322,24 +322,24 @@ const styles = StyleSheet.create({
   subscribeButtonText: {
     color: '#FFF',
     fontSize: 18,
-    fontWeight: '700' as const,
+    fontWeight: '700',
   },
   restoreButton: {
     paddingVertical: 12,
-    alignItems: 'center' as const,
+    alignItems: 'center',
     marginBottom: 16,
   },
   restoreButtonText: {
     fontSize: 15,
-    fontWeight: '600' as const,
+    fontWeight: '600',
   },
   disclaimer: {
     fontSize: 11,
-    textAlign: 'center' as const,
+    textAlign: 'center',
     lineHeight: 16,
   },
   loadingContainer: {
-    alignItems: 'center' as const,
+    alignItems: 'center',
     padding: 40,
   },
   loadingText: {
@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
   premiumBadge: {
     padding: 32,
     borderRadius: 20,
-    alignItems: 'center' as const,
+    alignItems: 'center',
     marginBottom: 32,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
   },
   premiumTitle: {
     fontSize: 28,
-    fontWeight: '800' as const,
+    fontWeight: '800',
     color: '#FFF',
     marginTop: 16,
     marginBottom: 4,
