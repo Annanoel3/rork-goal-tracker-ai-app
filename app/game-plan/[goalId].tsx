@@ -9,15 +9,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { ChevronDown, ChevronRight, Check, Lock, Circle, CheckCircle, Play, Pause, Archive, Sparkles } from 'lucide-react-native';
+import { ChevronDown, ChevronRight, Check, Lock, Circle, CheckCircle, Play, Pause, Archive, Sparkles, Star } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { getTheme } from '@/constants/theme';
 import { Milestone, Step } from '@/types';
+import { EditableText } from '@/components/EditableText';
+import { EditableSubtask } from '@/components/EditableSubtask';
 
 export default function GamePlanScreen() {
   const { goalId } = useLocalSearchParams<{ goalId: string }>();
   const router = useRouter();
-  const { gamePlans, theme, completeStep, skipStep, completeSubtask, pauseGamePlan, resumeGamePlan, archiveGamePlan } = useApp();
+  const { gamePlans, theme, completeStep, skipStep, completeSubtask, pauseGamePlan, resumeGamePlan, archiveGamePlan, updateStepTitle, updateStepDetails, toggleStepRequired, updateSubtaskTitle, addSubtask, deleteSubtask } = useApp();
   const colors = getTheme(theme);
 
   const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
@@ -126,19 +128,25 @@ export default function GamePlanScreen() {
               </Text>
             )}
             <View style={styles.celebrationActions}>
-              {gamePlan.openEnded && (
+              {!gamePlan.openEnded && (
                 <Pressable
                   style={[styles.celebrationButton, { backgroundColor: colors.primary }]}
-                  onPress={() => router.push('/(tabs)/chat')}
+                  onPress={handleResume}
                 >
-                  <Text style={styles.celebrationButtonText}>Expand Goal</Text>
+                  <Text style={styles.celebrationButtonText}>Maintain</Text>
                 </Pressable>
               )}
               <Pressable
-                style={[styles.celebrationButton, { backgroundColor: colors.accent }]}
+                style={[styles.celebrationButton, { backgroundColor: gamePlan.openEnded ? colors.primary : colors.accent }]}
+                onPress={() => router.push('/(tabs)/chat')}
+              >
+                <Text style={styles.celebrationButtonText}>{gamePlan.openEnded ? 'Continue' : 'Expand'}</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.celebrationButton, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}
                 onPress={handleArchive}
               >
-                <Text style={styles.celebrationButtonText}>Archive</Text>
+                <Text style={[styles.celebrationButtonText, { color: colors.text }]}>Archive</Text>
               </Pressable>
             </View>
           </View>
@@ -256,90 +264,100 @@ export default function GamePlanScreen() {
                                 </View>
 
                                 <View style={styles.stepContent}>
-                                  <Pressable
-                                    onPress={() => hasSubtasks && toggleStep(step.stepId)}
-                                    style={styles.stepTitleRow}
-                                  >
-                                    <Text
-                                      style={[
-                                        styles.stepTitle,
-                                        {
-                                          color:
-                                            step.status === 'completed' || step.status === 'skipped'
-                                              ? colors.textSecondary
-                                              : colors.text,
-                                          textDecorationLine:
-                                            step.status === 'completed' || step.status === 'skipped'
-                                              ? 'line-through'
-                                              : 'none',
-                                        },
-                                      ]}
-                                    >
-                                      {step.title}
-                                    </Text>
-                                    {hasSubtasks && (
-                                      stepExpanded ? (
-                                        <ChevronDown color={colors.textSecondary} size={18} />
-                                      ) : (
-                                        <ChevronRight color={colors.textSecondary} size={18} />
-                                      )
-                                    )}
-                                  </Pressable>
+                                  <View style={styles.stepTitleRow}>
+                                    <View style={{ flex: 1 }}>
+                                      <EditableText
+                                        value={step.title}
+                                        onSave={(newTitle) => updateStepTitle(goalId, milestone.milestoneId, step.stepId, newTitle)}
+                                        textStyle={[
+                                          styles.stepTitle,
+                                          {
+                                            color:
+                                              step.status === 'completed' || step.status === 'skipped'
+                                                ? colors.textSecondary
+                                                : colors.text,
+                                            textDecorationLine:
+                                              step.status === 'completed' || step.status === 'skipped'
+                                                ? 'line-through'
+                                                : 'none',
+                                          },
+                                        ]}
+                                        color={colors.primary}
+                                        placeholder="Step title"
+                                      />
+                                      {(step.skippedCount || 0) >= 2 && step.status !== 'completed' && (
+                                        <View style={[styles.skipWarning, { backgroundColor: colors.accent + '20' }]}>
+                                          <Text style={[styles.skipWarningText, { color: colors.accent }]}>
+                                            Skipped {step.skippedCount} times. Need help breaking this down?
+                                          </Text>
+                                          <Pressable
+                                            style={[styles.helpChatButton, { backgroundColor: colors.accent }]}
+                                            onPress={() => router.push('/(tabs)/chat')}
+                                          >
+                                            <Text style={styles.helpChatButtonText}>Chat</Text>
+                                          </Pressable>
+                                        </View>
+                                      )}
+                                    </View>
+                                    <View style={styles.stepActions}>
+                                      <Pressable
+                                        onPress={() => toggleStepRequired(goalId, milestone.milestoneId, step.stepId)}
+                                        style={styles.iconButton}
+                                      >
+                                        <Star
+                                          color={step.isRequired ? colors.accent : colors.textSecondary}
+                                          size={16}
+                                          fill={step.isRequired ? colors.accent : 'none'}
+                                        />
+                                      </Pressable>
+                                      {hasSubtasks && (
+                                        <Pressable
+                                          onPress={() => toggleStep(step.stepId)}
+                                          style={styles.iconButton}
+                                        >
+                                          {stepExpanded ? (
+                                            <ChevronDown color={colors.textSecondary} size={18} />
+                                          ) : (
+                                            <ChevronRight color={colors.textSecondary} size={18} />
+                                          )}
+                                        </Pressable>
+                                      )}
+                                    </View>
+                                  </View>
 
-                                  {step.details && (
-                                    <Text style={[styles.stepDetails, { color: colors.textSecondary }]}>
-                                      {step.details}
-                                    </Text>
+                                  {(step.details || step.status === 'not_started') && (
+                                    <EditableText
+                                      value={step.details || ''}
+                                      onSave={(newDetails) => updateStepDetails(goalId, milestone.milestoneId, step.stepId, newDetails)}
+                                      textStyle={[styles.stepDetails, { color: colors.textSecondary }]}
+                                      color={colors.primary}
+                                      multiline
+                                      placeholder="Add details..."
+                                    />
                                   )}
 
                                   {stepExpanded && hasSubtasks && (
                                     <View style={styles.subtasksContainer}>
                                       {step.subtasks.map((subtask) => (
-                                        <Pressable
+                                        <EditableSubtask
                                           key={subtask.subtaskId}
-                                          style={styles.subtaskRow}
-                                          onPress={() => handleToggleSubtask(milestone, step, subtask.subtaskId)}
-                                        >
-                                          <View
-                                            style={[
-                                              styles.subtaskCheckbox,
-                                              {
-                                                backgroundColor:
-                                                  subtask.status === 'completed'
-                                                    ? colors.primary
-                                                    : 'transparent',
-                                                borderColor: colors.border,
-                                              },
-                                            ]}
-                                          >
-                                            {subtask.status === 'completed' && (
-                                              <Check color="#FFF" size={12} />
-                                            )}
-                                          </View>
-                                          <Text
-                                            style={[
-                                              styles.subtaskTitle,
-                                              {
-                                                color:
-                                                  subtask.status === 'completed'
-                                                    ? colors.textSecondary
-                                                    : colors.text,
-                                                textDecorationLine:
-                                                  subtask.status === 'completed'
-                                                    ? 'line-through'
-                                                    : 'none',
-                                              },
-                                            ]}
-                                          >
-                                            {subtask.title}
-                                          </Text>
-                                        </Pressable>
+                                          subtask={subtask}
+                                          onToggle={() => handleToggleSubtask(milestone, step, subtask.subtaskId)}
+                                          onUpdate={(newTitle) => updateSubtaskTitle(goalId, milestone.milestoneId, step.stepId, subtask.subtaskId, newTitle)}
+                                          onDelete={() => deleteSubtask(goalId, milestone.milestoneId, step.stepId, subtask.subtaskId)}
+                                          colors={colors}
+                                        />
                                       ))}
+                                      <EditableSubtask
+                                        isNew
+                                        onCreate={(title) => addSubtask(goalId, milestone.milestoneId, step.stepId, title)}
+                                        colors={colors}
+                                      />
                                     </View>
                                   )}
 
                                   {step.status !== 'completed' && step.status !== 'skipped' && (
-                                    <View style={styles.stepActions}>
+                                    <View style={styles.stepActionButtons}>
                                       <Pressable
                                         style={[styles.stepButton, { backgroundColor: colors.success }]}
                                         onPress={() => handleCompleteStep(milestone, step)}
@@ -549,7 +567,8 @@ const styles = StyleSheet.create({
   stepTitleRow: {
     flexDirection: 'row' as const,
     justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
+    alignItems: 'flex-start' as const,
+    gap: 8,
   },
   stepTitle: {
     fontSize: 16,
@@ -560,31 +579,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  skipWarning: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 8,
+    gap: 8,
+  },
+  skipWarningText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '500' as const,
+  },
+  helpChatButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  helpChatButtonText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600' as const,
+  },
   subtasksContainer: {
     gap: 8,
     marginTop: 4,
   },
-  subtaskRow: {
+  stepActions: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    gap: 10,
+    gap: 8,
   },
-  subtaskCheckbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-  subtaskTitle: {
-    fontSize: 14,
-    flex: 1,
-  },
-  stepActions: {
+  stepActionButtons: {
     flexDirection: 'row' as const,
     gap: 8,
     marginTop: 4,
+  },
+  iconButton: {
+    padding: 4,
   },
   stepButton: {
     paddingHorizontal: 16,

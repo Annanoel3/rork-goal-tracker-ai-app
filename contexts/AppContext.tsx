@@ -367,6 +367,174 @@ export const [AppProvider, useApp] = createContextHook(() => {
     await updateGamePlan(goalId, { status: 'archived' });
   };
 
+  const updateStepTitle = async (goalId: string, milestoneId: string, stepId: string, title: string) => {
+    console.log('Updating step title:', stepId, title);
+    const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
+    if (!gamePlan) return;
+
+    const updatedMilestones = gamePlan.milestones.map(m => {
+      if (m.milestoneId !== milestoneId) return m;
+      const updatedSteps = m.steps.map(s => 
+        s.stepId === stepId ? { ...s, title } : s
+      );
+      return { ...m, steps: updatedSteps };
+    });
+
+    await updateGamePlan(goalId, { milestones: updatedMilestones });
+  };
+
+  const updateStepDetails = async (goalId: string, milestoneId: string, stepId: string, details: string) => {
+    console.log('Updating step details:', stepId);
+    const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
+    if (!gamePlan) return;
+
+    const updatedMilestones = gamePlan.milestones.map(m => {
+      if (m.milestoneId !== milestoneId) return m;
+      const updatedSteps = m.steps.map(s => 
+        s.stepId === stepId ? { ...s, details } : s
+      );
+      return { ...m, steps: updatedSteps };
+    });
+
+    await updateGamePlan(goalId, { milestones: updatedMilestones });
+  };
+
+  const toggleStepRequired = async (goalId: string, milestoneId: string, stepId: string) => {
+    console.log('Toggling step required:', stepId);
+    const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
+    if (!gamePlan) return;
+
+    const updatedMilestones = gamePlan.milestones.map(m => {
+      if (m.milestoneId !== milestoneId) return m;
+      const updatedSteps = m.steps.map(s => 
+        s.stepId === stepId ? { ...s, isRequired: !s.isRequired } : s
+      );
+      return { ...m, steps: updatedSteps };
+    });
+
+    await updateGamePlan(goalId, { milestones: updatedMilestones });
+  };
+
+  const updateSubtaskTitle = async (
+    goalId: string,
+    milestoneId: string,
+    stepId: string,
+    subtaskId: string,
+    title: string
+  ) => {
+    console.log('Updating subtask title:', subtaskId, title);
+    const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
+    if (!gamePlan) return;
+
+    const updatedMilestones = gamePlan.milestones.map(m => {
+      if (m.milestoneId !== milestoneId) return m;
+      const updatedSteps = m.steps.map(s => {
+        if (s.stepId !== stepId) return s;
+        const updatedSubtasks = s.subtasks.map(st =>
+          st.subtaskId === subtaskId ? { ...st, title } : st
+        );
+        return { ...s, subtasks: updatedSubtasks };
+      });
+      return { ...m, steps: updatedSteps };
+    });
+
+    await updateGamePlan(goalId, { milestones: updatedMilestones });
+  };
+
+  const addSubtask = async (
+    goalId: string,
+    milestoneId: string,
+    stepId: string,
+    title: string
+  ) => {
+    console.log('Adding subtask:', title);
+    const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
+    if (!gamePlan) return;
+
+    const updatedMilestones = gamePlan.milestones.map(m => {
+      if (m.milestoneId !== milestoneId) return m;
+      const updatedSteps = m.steps.map(s => {
+        if (s.stepId !== stepId) return s;
+        const newSubtask = {
+          subtaskId: `${stepId}-st${Date.now()}`,
+          title,
+          status: 'not_started' as SubtaskStatus,
+        };
+        return { ...s, subtasks: [...s.subtasks, newSubtask] };
+      });
+      return { ...m, steps: updatedSteps };
+    });
+
+    await updateGamePlan(goalId, { milestones: updatedMilestones });
+  };
+
+  const deleteSubtask = async (
+    goalId: string,
+    milestoneId: string,
+    stepId: string,
+    subtaskId: string
+  ) => {
+    console.log('Deleting subtask:', subtaskId);
+    const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
+    if (!gamePlan) return;
+
+    const updatedMilestones = gamePlan.milestones.map(m => {
+      if (m.milestoneId !== milestoneId) return m;
+      const updatedSteps = m.steps.map(s => {
+        if (s.stepId !== stepId) return s;
+        return { ...s, subtasks: s.subtasks.filter(st => st.subtaskId !== subtaskId) };
+      });
+      return { ...m, steps: updatedSteps };
+    });
+
+    await updateGamePlan(goalId, { milestones: updatedMilestones });
+  };
+
+  const updateStepReminders = async (
+    goalId: string,
+    milestoneId: string,
+    stepId: string,
+    reminders: string[]
+  ) => {
+    console.log('Updating step reminders:', stepId, reminders);
+    const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
+    if (!gamePlan) return;
+
+    const updatedMilestones = gamePlan.milestones.map(m => {
+      if (m.milestoneId !== milestoneId) return m;
+      const updatedSteps = m.steps.map(s => 
+        s.stepId === stepId ? { ...s, reminders } : s
+      );
+      return { ...m, steps: updatedSteps };
+    });
+
+    await updateGamePlan(goalId, { milestones: updatedMilestones });
+  };
+
+  const reorderSteps = async (
+    goalId: string,
+    milestoneId: string,
+    fromIndex: number,
+    toIndex: number
+  ) => {
+    console.log('Reordering steps:', fromIndex, toIndex);
+    const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
+    if (!gamePlan) return;
+
+    const updatedMilestones = gamePlan.milestones.map(m => {
+      if (m.milestoneId !== milestoneId) return m;
+      
+      const steps = [...m.steps];
+      const [removed] = steps.splice(fromIndex, 1);
+      steps.splice(toIndex, 0, removed);
+      
+      const reorderedSteps = steps.map((s, index) => ({ ...s, orderIndex: index }));
+      return { ...m, steps: reorderedSteps };
+    });
+
+    await updateGamePlan(goalId, { milestones: updatedMilestones });
+  };
+
   return {
     user,
     goals,
@@ -392,6 +560,14 @@ export const [AppProvider, useApp] = createContextHook(() => {
     pauseGamePlan,
     resumeGamePlan,
     archiveGamePlan,
+    updateStepTitle,
+    updateStepDetails,
+    toggleStepRequired,
+    updateSubtaskTitle,
+    addSubtask,
+    deleteSubtask,
+    updateStepReminders,
+    reorderSteps,
     addPoints,
     addChatMessage,
     clearChatHistory,
