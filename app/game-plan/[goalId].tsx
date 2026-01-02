@@ -19,7 +19,7 @@ import { EditableSubtask } from '@/components/EditableSubtask';
 export default function GamePlanScreen() {
   const { goalId } = useLocalSearchParams<{ goalId: string }>();
   const router = useRouter();
-  const { gamePlans, theme, completeStep, skipStep, completeSubtask, pauseGamePlan, resumeGamePlan, archiveGamePlan, updateStepTitle, updateStepDetails, toggleStepRequired, updateSubtaskTitle, addSubtask, deleteSubtask, completeFallbackAction } = useApp();
+  const { gamePlans, theme, completeStep, skipStep, completeSubtask, pauseGamePlan, resumeGamePlan, archiveGamePlan, updateStepTitle, updateStepDetails, toggleStepRequired, updateSubtaskTitle, addSubtask, deleteSubtask } = useApp();
   const colors = getTheme(theme);
 
   const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
@@ -79,10 +79,6 @@ export default function GamePlanScreen() {
   const handleArchive = async () => {
     await archiveGamePlan(goalId);
     router.back();
-  };
-
-  const handleCompleteFallback = async (milestone: Milestone, step: Step, effortMinutes?: number) => {
-    await completeFallbackAction(goalId, milestone.milestoneId, step.stepId, effortMinutes);
   };
 
   const isCelebrating = gamePlan.status === 'completed';
@@ -358,31 +354,27 @@ export default function GamePlanScreen() {
                                     </View>
                                   </View>
 
-                                  {(step.details || step.status === 'not_started') && (
-                                    <EditableText
-                                      value={step.details || ''}
-                                      onSave={(newDetails) => updateStepDetails(goalId, milestone.milestoneId, step.stepId, newDetails)}
-                                      textStyle={[styles.stepDetails, { color: colors.textSecondary }]}
-                                      color={colors.primary}
-                                      multiline
-                                      placeholder="Add details..."
-                                    />
-                                  )}
+                                  <EditableText
+                                    value={step.details || ''}
+                                    onSave={(newDetails) => updateStepDetails(goalId, milestone.milestoneId, step.stepId, newDetails)}
+                                    textStyle={[styles.stepDetails, { color: colors.textSecondary }]}
+                                    color={colors.primary}
+                                    multiline
+                                    placeholder={step.requiresContext ? "Add notes or details here..." : "Add details..."}
+                                  />
 
                                   {step.fallbackAction && step.status !== 'completed' && step.status !== 'skipped' && (
                                     <View style={[styles.fallbackContainer, { backgroundColor: colors.surface }]}>
                                       <Zap color={colors.accent} size={16} />
                                       <View style={{ flex: 1 }}>
-                                        <Text style={[styles.fallbackTitle, { color: colors.text }]}>Easier option</Text>
-                                        <Text style={[styles.fallbackText, { color: colors.textSecondary }]}>
-                                          {step.fallbackAction.title}
-                                        </Text>
+                                        <Text style={[styles.fallbackTitle, { color: colors.text }]}>Need help with this?</Text>
+                                        <Text style={[styles.fallbackText, { color: colors.textSecondary }]}>Let me research and help you figure this out</Text>
                                       </View>
                                       <Pressable
                                         style={[styles.fallbackButton, { backgroundColor: colors.accent }]}
-                                        onPress={() => handleCompleteFallback(milestone, step, step.fallbackAction?.effortMinutes)}
+                                        onPress={() => router.push('/(tabs)/chat')}
                                       >
-                                        <Text style={styles.fallbackButtonText}>Do this</Text>
+                                        <Text style={styles.fallbackButtonText}>Get help</Text>
                                       </Pressable>
                                     </View>
                                   )}
