@@ -15,12 +15,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Send, Sparkles } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { getTheme } from '@/constants/theme';
-import { chatWithAI, generateGoalFromConversation } from '@/services/ai';
+import { chatWithAI, generateGamePlan, GamePlanGenerationParams } from '@/services/ai';
 import { BannerAd } from '@/components/BannerAd';
 import { ChatMessage } from '@/types';
 
 export default function ChatScreen() {
-  const { addGoal, addChatMessage, chatHistory, theme } = useApp();
+  const { addGamePlan, addChatMessage, chatHistory, theme } = useApp();
   const colors = getTheme(theme);
 
   const [messages, setMessages] = useState<ChatMessage[]>(
@@ -77,28 +77,58 @@ export default function ChatScreen() {
       await addChatMessage(assistantMessage);
 
       const shouldCreateGoal = 
-        aiResponse.toLowerCase().includes('turn this into a simple plan') ||
-        aiResponse.toLowerCase().includes('add it to your goals page') ||
+        aiResponse.toLowerCase().includes('set that up') ||
+        aiResponse.toLowerCase().includes('turn this into') ||
+        aiResponse.toLowerCase().includes('create a game plan') ||
         (conversationHistory.length >= 4 && (
-          aiResponse.toLowerCase().includes('create') && aiResponse.toLowerCase().includes('goal')
+          (aiResponse.toLowerCase().includes('want me to') || aiResponse.toLowerCase().includes('should i')) &&
+          (aiResponse.toLowerCase().includes('set') || aiResponse.toLowerCase().includes('plan'))
         ));
 
-      if (shouldCreateGoal && userMessage.content.toLowerCase().match(/\b(yes|sure|ok|okay|go ahead|please|sounds good|let'?s do it)\b/)) {
+      if (shouldCreateGoal && userMessage.content.toLowerCase().match(/\b(yes|sure|ok|okay|go ahead|please|sounds good|let'?s do it|do it|yeah|yep|absolutely)\b/)) {
         setTimeout(async () => {
           try {
-            const goal = await generateGoalFromConversation(conversationHistory);
-            await addGoal(goal);
-
-            const successMessage: ChatMessage = {
+            const creatingMessage: ChatMessage = {
               id: (Date.now() + 2).toString(),
               role: 'assistant',
-              content: '🎉 Awesome! Your goal has been created. Check it out in the Goals tab!',
+              content: 'Perfect! Creating your game plan now... ⚡',
               timestamp: new Date().toISOString(),
             };
-            setMessages([...updatedMessages, successMessage]);
+            setMessages([...updatedMessages, creatingMessage]);
+            await addChatMessage(creatingMessage);
+
+            const goalTitle = extractGoalTitle(conversationHistory);
+            const goalDescription = extractGoalDescription(conversationHistory);
+            const category = extractCategory(conversationHistory);
+
+            const gamePlanParams: GamePlanGenerationParams = {
+              goalTitle,
+              goalDescription,
+              category,
+              conversationHistory,
+            };
+
+            const gamePlan = await generateGamePlan(gamePlanParams);
+            await addGamePlan(gamePlan);
+
+            const successMessage: ChatMessage = {
+              id: (Date.now() + 3).toString(),
+              role: 'assistant',
+              content: '🎉 Your game plan is ready! Check it out in the Goals tab. You can see your full plan and today\'s next action.',
+              timestamp: new Date().toISOString(),
+            };
+            setMessages([...updatedMessages, creatingMessage, successMessage]);
             await addChatMessage(successMessage);
           } catch (error) {
-            console.error('Error creating goal:', error);
+            console.error('Error creating game plan:', error);
+            const errorMessage: ChatMessage = {
+              id: (Date.now() + 3).toString(),
+              role: 'assistant',
+              content: 'I had trouble creating the game plan. Could you tell me a bit more about what you want to achieve?',
+              timestamp: new Date().toISOString(),
+            };
+            setMessages([...updatedMessages, errorMessage]);
+            await addChatMessage(errorMessage);
           }
         }, 1000);
       }
@@ -221,6 +251,35 @@ export default function ChatScreen() {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
+}
+
+function extractGoalTitle(history: { role: string; content: string }[]): string {
+  const userMessages = history.filter(m => m.role === 'user');
+  if (userMessages.length > 0) {
+    const firstMessage = userMessages[0].content;
+    const sentences = firstMessage.split(/[.!?]/);
+    return sentences[0].trim().slice(0, 60);
+  }
+  return 'My Goal';
+}
+
+function extractGoalDescription(history: { role: string; content: string }[]): string {
+  const userMessages = history.filter(m => m.role === 'user');
+  const description = userMessages.map(m => m.content).join(' ');
+  return description.slice(0, 200);
+}
+
+function extractCategory(history: { role: string; content: string }[]): string {
+  const allContent = history.map(m => m.content.toLowerCase()).join(' ');
+  
+  if (allContent.match(/\b(workout|exercise|fitness|gym|run|train|health)\b/)) return 'fitness';
+  if (allContent.match(/\b(learn|study|practice|skill|education|course)\b/)) return 'learning';
+  if (allContent.match(/\b(business|startup|launch|app|product|monetize)\b/)) return 'business';
+  if (allContent.match(/\b(save|invest|money|debt|financial|budget)\b/)) return 'financial';
+  if (allContent.match(/\b(write|paint|create|art|music|photography)\b/)) return 'creative';
+  if (allContent.match(/\b(eat|diet|sleep|meditate|wellness|stress)\b/)) return 'lifestyle';
+  
+  return 'personal';
 }
 
 const styles = StyleSheet.create({

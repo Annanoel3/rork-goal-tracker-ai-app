@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Goal } from '@/types';
+import { Goal, GamePlan } from '@/types';
 
 const API_KEY_STORAGE = '@openai_api_key';
 
@@ -176,6 +176,20 @@ export interface GoalPlanResponse {
   message: string;
 }
 
+export interface GamePlanGenerationParams {
+  goalTitle: string;
+  goalDescription: string;
+  category: string;
+  conversationHistory: { role: 'user' | 'assistant'; content: string }[];
+  userContext?: {
+    experienceLevel?: string;
+    timeline?: string;
+    frequency?: string;
+    location?: string;
+    restrictions?: string[];
+  };
+}
+
 export const chatWithAI = async (
   messages: { role: 'user' | 'assistant' | 'system'; content: string }[],
   onStream?: (text: string) => void
@@ -282,5 +296,128 @@ ${conversationHistory.map(m => `${m.role}: ${m.content}`).join('\n')}`;
   } catch (error) {
     console.error('Error generating goal:', error);
     throw new Error('Failed to generate goal from conversation');
+  }
+};
+
+export const generateGamePlan = async (params: GamePlanGenerationParams): Promise<GamePlan> => {
+  if (!openaiClient) {
+    throw new Error('OpenAI not initialized. Please add your API key in settings.');
+  }
+
+  const prompt = `Based on this conversation, create a comprehensive game plan with milestones and steps.
+
+Goal: ${params.goalTitle}
+Description: ${params.goalDescription}
+Category: ${params.category}
+
+Conversation context:
+${params.conversationHistory.map(m => `${m.role}: ${m.content}`).join('\n')}
+
+Create a game plan that:
+1. Adapts to the goal type (${params.category}):
+   - Habit goals: Focus on reminders and check-ins
+   - Skill/learning goals: Include practice schedules and resources
+   - Lifestyle/health goals: Build daily/weekly habits
+   - Project/business goals: Structured milestones with clear deliverables
+   - Financial goals: Trackable milestones with progress metrics
+   - Creative goals: Regular creation schedule with prompts
+
+2. Structures steps appropriately:
+   - requiresContext=true for abstract/strategic/unfamiliar steps (subtasks expanded by default)
+   - requiresContext=false for obvious/habitual actions (subtasks collapsed by default)
+   - Include subtasks for steps that need breakdown
+   - Mark isRequired=true for critical steps, false for optional
+
+3. Determines if goal is openEnded (ongoing habits vs. finite projects)
+
+Return ONLY valid JSON with this structure:
+{
+  "goalTitle": "title",
+  "goalDescription": "description in user's own words",
+  "category": "category",
+  "openEnded": true/false,
+  "milestones": [
+    {
+      "title": "milestone title",
+      "description": "optional short description",
+      "orderIndex": 0,
+      "isFinal": false,
+      "steps": [
+        {
+          "title": "clear action title",
+          "details": "optional explanation",
+          "orderIndex": 0,
+          "isRequired": true,
+          "requiresContext": true/false,
+          "dueCadence": "daily/weekly/etc or null",
+          "reminders": ["reminder text"] or [],
+          "subtasks": [
+            {
+              "title": "subtask title"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}`;
+
+  try {
+    const response = await openaiClient.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        { role: 'system', content: 'You are a JSON generator creating adaptive game plans. Return only valid JSON, no markdown, no explanation.' },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.4,
+    });
+
+    const content = response.choices[0]?.message?.content || '{}';
+    const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
+    const parsed = JSON.parse(cleanContent);
+
+    const goalId = Date.now().toString();
+    const now = new Date().toISOString();
+
+    const gamePlan: GamePlan = {
+      goalId,
+      goalTitle: parsed.goalTitle,
+      goalDescription: parsed.goalDescription,
+      createdAt: now,
+      updatedAt: now,
+      status: 'active',
+      openEnded: parsed.openEnded || false,
+      category: parsed.category,
+      milestones: parsed.milestones.map((m: any, mIndex: number) => ({
+        milestoneId: `${goalId}-m${mIndex}`,
+        title: m.title,
+        description: m.description,
+        orderIndex: m.orderIndex,
+        status: mIndex === 0 ? 'active' : 'locked',
+        isFinal: m.isFinal || mIndex === parsed.milestones.length - 1,
+        steps: m.steps.map((s: any, sIndex: number) => ({
+          stepId: `${goalId}-m${mIndex}-s${sIndex}`,
+          title: s.title,
+          details: s.details,
+          orderIndex: s.orderIndex,
+          status: 'not_started',
+          isRequired: s.isRequired !== false,
+          dueCadence: s.dueCadence,
+          reminders: s.reminders || [],
+          requiresContext: s.requiresContext !== false,
+          subtasks: (s.subtasks || []).map((st: any, stIndex: number) => ({
+            subtaskId: `${goalId}-m${mIndex}-s${sIndex}-st${stIndex}`,
+            title: st.title,
+            status: 'not_started',
+          })),
+        })),
+      })),
+    };
+
+    console.log('Generated game plan:', JSON.stringify(gamePlan, null, 2));
+    return gamePlan;
+  } catch (error) {
+    console.error('Error generating game plan:', error);
+    throw new Error('Failed to generate game plan from conversation');
   }
 };

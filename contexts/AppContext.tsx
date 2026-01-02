@@ -1,13 +1,14 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState, useCallback } from 'react';
-import { Goal, User, GamificationData, ChatMessage, ThemeMode, NotificationSettings } from '@/types';
+import { Goal, User, GamificationData, ChatMessage, ThemeMode, NotificationSettings, GamePlan, Step, StepStatus, MilestoneStatus, SubtaskStatus } from '@/types';
 import { calculateLevel, getPointsToNextLevel, POINTS_CONFIG } from '@/constants/gamification';
 import { loadOpenAIKey } from '@/services/ai';
 
 const STORAGE_KEYS = {
   USER: '@user',
   GOALS: '@goals',
+  GAME_PLANS: '@game_plans',
   GAMIFICATION: '@gamification',
   CHAT_HISTORY: '@chat_history',
   THEME: '@theme',
@@ -18,6 +19,7 @@ const STORAGE_KEYS = {
 export const [AppProvider, useApp] = createContextHook(() => {
   const [user, setUser] = useState<User | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [gamePlans, setGamePlans] = useState<GamePlan[]>([]);
   const [gamification, setGamification] = useState<GamificationData>({
     totalPoints: 0,
     level: 0,
@@ -46,6 +48,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
       const [
         storedUser,
         storedGoals,
+        storedGamePlans,
         storedGamification,
         storedChatHistory,
         storedTheme,
@@ -54,6 +57,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
       ] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.USER),
         AsyncStorage.getItem(STORAGE_KEYS.GOALS),
+        AsyncStorage.getItem(STORAGE_KEYS.GAME_PLANS),
         AsyncStorage.getItem(STORAGE_KEYS.GAMIFICATION),
         AsyncStorage.getItem(STORAGE_KEYS.CHAT_HISTORY),
         AsyncStorage.getItem(STORAGE_KEYS.THEME),
@@ -66,6 +70,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
         setUser(parsedUser);
       }
       if (storedGoals) setGoals(JSON.parse(storedGoals));
+      if (storedGamePlans) setGamePlans(JSON.parse(storedGamePlans));
       if (storedGamification) setGamification(JSON.parse(storedGamification));
       if (storedChatHistory) setChatHistory(JSON.parse(storedChatHistory));
       if (storedTheme) setTheme(JSON.parse(storedTheme));
@@ -198,9 +203,174 @@ export const [AppProvider, useApp] = createContextHook(() => {
     await AsyncStorage.setItem(STORAGE_KEYS.HAS_ONBOARDED, JSON.stringify(true));
   };
 
+  const addGamePlan = async (gamePlan: GamePlan) => {
+    console.log('Adding game plan:', gamePlan.goalTitle);
+    const newGamePlans = [...gamePlans, gamePlan];
+    setGamePlans(newGamePlans);
+    await AsyncStorage.setItem(STORAGE_KEYS.GAME_PLANS, JSON.stringify(newGamePlans));
+    await addPoints(POINTS_CONFIG.CHAT_INTERACTION);
+  };
+
+  const updateGamePlan = async (goalId: string, updates: Partial<GamePlan>) => {
+    console.log('Updating game plan:', goalId);
+    const newGamePlans = gamePlans.map(gp => 
+      gp.goalId === goalId ? { ...gp, ...updates, updatedAt: new Date().toISOString() } : gp
+    );
+    setGamePlans(newGamePlans);
+    await AsyncStorage.setItem(STORAGE_KEYS.GAME_PLANS, JSON.stringify(newGamePlans));
+  };
+
+  const getNextAction = (goalId: string): Step | null => {
+    const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
+    if (!gamePlan || gamePlan.status === 'paused' || gamePlan.status === 'archived') return null;
+
+    const activeMilestone = gamePlan.milestones.find(m => m.status === 'active');
+    if (!activeMilestone) return null;
+
+    const nextStep = activeMilestone.steps.find(s => 
+      s.isRequired && (s.status === 'not_started' || s.status === 'in_progress')
+    );
+    return nextStep || null;
+  };
+
+  const completeStep = async (goalId: string, milestoneId: string, stepId: string) => {
+    console.log('Completing step:', stepId);
+    const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
+    if (!gamePlan) return;
+
+    const milestone = gamePlan.milestones.find(m => m.milestoneId === milestoneId);
+    if (!milestone) return;
+
+    const step = milestone.steps.find(s => s.stepId === stepId);
+    if (!step) return;
+
+    const updatedMilestones = gamePlan.milestones.map(m => {
+      if (m.milestoneId !== milestoneId) return m;
+      
+      const updatedSteps = m.steps.map(s => 
+        s.stepId === stepId ? { ...s, status: 'completed' as StepStatus } : s
+      );
+
+      const allRequiredComplete = updatedSteps
+        .filter(s => s.isRequired)
+        .every(s => s.status === 'completed' || s.status === 'skipped');
+
+      if (allRequiredComplete && m.status === 'active') {
+        return { 
+          ...m, 
+          steps: updatedSteps, 
+          status: 'completed' as MilestoneStatus,
+          completedAt: new Date().toISOString()
+        };
+      }
+
+      return { ...m, steps: updatedSteps };
+    });
+
+    const justCompletedMilestone = updatedMilestones.find(
+      m => m.milestoneId === milestoneId && m.status === 'completed'
+    );
+
+    if (justCompletedMilestone) {
+      const currentIndex = justCompletedMilestone.orderIndex;
+      const nextMilestone = updatedMilestones.find(
+        m => m.orderIndex === currentIndex + 1 && m.status === 'locked'
+      );
+
+      if (nextMilestone) {
+        updatedMilestones.forEach(m => {
+          if (m.milestoneId === nextMilestone.milestoneId) {
+            m.status = 'active';
+          }
+        });
+      } else if (justCompletedMilestone.isFinal) {
+        await updateGamePlan(goalId, {
+          milestones: updatedMilestones,
+          status: gamePlan.openEnded ? 'active' : 'completed'
+        });
+        await addPoints(POINTS_CONFIG.COMPLETE_GOAL);
+        return;
+      }
+    }
+
+    await updateGamePlan(goalId, { milestones: updatedMilestones });
+    await addPoints(10);
+  };
+
+  const skipStep = async (goalId: string, milestoneId: string, stepId: string) => {
+    console.log('Skipping step:', stepId);
+    const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
+    if (!gamePlan) return;
+
+    const updatedMilestones = gamePlan.milestones.map(m => {
+      if (m.milestoneId !== milestoneId) return m;
+
+      const updatedSteps = m.steps.map(s => {
+        if (s.stepId !== stepId) return s;
+        return {
+          ...s,
+          status: 'skipped' as StepStatus,
+          skippedCount: (s.skippedCount || 0) + 1
+        };
+      });
+
+      return { ...m, steps: updatedSteps };
+    });
+
+    await updateGamePlan(goalId, { milestones: updatedMilestones });
+  };
+
+  const completeSubtask = async (
+    goalId: string,
+    milestoneId: string,
+    stepId: string,
+    subtaskId: string
+  ) => {
+    console.log('Completing subtask:', subtaskId);
+    const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
+    if (!gamePlan) return;
+
+    const updatedMilestones = gamePlan.milestones.map(m => {
+      if (m.milestoneId !== milestoneId) return m;
+
+      const updatedSteps = m.steps.map(s => {
+        if (s.stepId !== stepId) return s;
+
+        const updatedSubtasks = s.subtasks.map(st => 
+          st.subtaskId === subtaskId
+            ? { ...st, status: (st.status === 'completed' ? 'not_started' : 'completed') as SubtaskStatus }
+            : st
+        );
+
+        return { ...s, subtasks: updatedSubtasks };
+      });
+
+      return { ...m, steps: updatedSteps };
+    });
+
+    await updateGamePlan(goalId, { milestones: updatedMilestones });
+    await addPoints(5);
+  };
+
+  const pauseGamePlan = async (goalId: string) => {
+    console.log('Pausing game plan:', goalId);
+    await updateGamePlan(goalId, { status: 'paused' });
+  };
+
+  const resumeGamePlan = async (goalId: string) => {
+    console.log('Resuming game plan:', goalId);
+    await updateGamePlan(goalId, { status: 'active' });
+  };
+
+  const archiveGamePlan = async (goalId: string) => {
+    console.log('Archiving game plan:', goalId);
+    await updateGamePlan(goalId, { status: 'archived' });
+  };
+
   return {
     user,
     goals,
+    gamePlans,
     gamification,
     chatHistory,
     theme,
@@ -213,6 +383,15 @@ export const [AppProvider, useApp] = createContextHook(() => {
     updateGoal,
     deleteGoal,
     toggleStepCompletion,
+    addGamePlan,
+    updateGamePlan,
+    getNextAction,
+    completeStep,
+    skipStep,
+    completeSubtask,
+    pauseGamePlan,
+    resumeGamePlan,
+    archiveGamePlan,
     addPoints,
     addChatMessage,
     clearChatHistory,

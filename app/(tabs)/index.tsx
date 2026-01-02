@@ -10,17 +10,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Plus, Sparkles } from 'lucide-react-native';
+import { Plus, Sparkles, MessageCircle, Play } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { getTheme } from '@/constants/theme';
-import { GoalCard } from '@/components/GoalCard';
 import { LevelBadge } from '@/components/LevelBadge';
 import { LevelUpModal } from '@/components/LevelUpModal';
 import { BannerAd } from '@/components/BannerAd';
 
 export default function GoalsScreen() {
   const router = useRouter();
-  const { user, goals, gamification, hasOnboarded, isLoading, theme } = useApp();
+  const { user, goals, gamePlans, gamification, hasOnboarded, isLoading, theme, getNextAction } = useApp();
   const colors = getTheme(theme);
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
   const [levelUpLevel] = useState(0);
@@ -60,6 +59,7 @@ export default function GoalsScreen() {
   }
 
   const activeGoals = goals.filter(g => g.isActive);
+  const activeGamePlans = gamePlans.filter(gp => gp.status === 'active' || gp.status === 'paused');
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
@@ -115,7 +115,7 @@ export default function GoalsScreen() {
             </Pressable>
           </View>
 
-          {activeGoals.length === 0 ? (
+          {activeGamePlans.length === 0 ? (
             <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
               <Sparkles color={colors.primary} size={48} />
               <Text style={[styles.emptyTitle, { color: colors.text }]}>No goals yet!</Text>
@@ -131,13 +131,81 @@ export default function GoalsScreen() {
             </View>
           ) : (
             <View style={styles.goalsGrid}>
-              {activeGoals.map((goal) => (
-                <GoalCard
-                  key={goal.id}
-                  goal={goal}
-                  onPress={() => router.push(`/goal/${goal.id}` as any)}
-                />
-              ))}
+              {activeGamePlans.map((gamePlan) => {
+                const nextAction = getNextAction(gamePlan.goalId);
+                const activeMilestone = gamePlan.milestones.find(m => m.status === 'active');
+                const isPaused = gamePlan.status === 'paused';
+
+                return (
+                  <View key={gamePlan.goalId} style={[styles.goalCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+                    <Pressable
+                      style={styles.goalCardHeader}
+                      onPress={() => router.push(`/game-plan/${gamePlan.goalId}` as any)}
+                    >
+                      <View style={styles.goalCardTop}>
+                        <Text style={[styles.goalCardTitle, { color: colors.text }]}>
+                          {gamePlan.goalTitle}
+                        </Text>
+                        <View style={[styles.categoryBadge, { backgroundColor: colors.primary + '20' }]}>
+                          <Text style={[styles.categoryText, { color: colors.primary }]}>
+                            {gamePlan.category}
+                          </Text>
+                        </View>
+                      </View>
+                      {activeMilestone && (
+                        <Text style={[styles.milestoneText, { color: colors.textSecondary }]}>
+                          📍 {activeMilestone.title}
+                        </Text>
+                      )}
+                    </Pressable>
+
+                    {isPaused ? (
+                      <View style={[styles.pausedCard, { backgroundColor: colors.surface }]}>
+                        <Text style={[styles.pausedCardText, { color: colors.textSecondary }]}>Goal paused</Text>
+                        <Pressable
+                          style={[styles.viewButton, { backgroundColor: colors.primary }]}
+                          onPress={() => router.push(`/game-plan/${gamePlan.goalId}` as any)}
+                        >
+                          <Text style={styles.viewButtonText}>Resume</Text>
+                        </Pressable>
+                      </View>
+                    ) : nextAction ? (
+                      <View style={styles.nextActionCard}>
+                        <Text style={[styles.nextActionLabel, { color: colors.textSecondary }]}>Next Action</Text>
+                        <Text style={[styles.nextActionTitle, { color: colors.text }]}>
+                          {nextAction.title}
+                        </Text>
+                        <View style={styles.actionButtons}>
+                          <Pressable
+                            style={[styles.actionButton, { backgroundColor: colors.success }]}
+                            onPress={() => router.push(`/game-plan/${gamePlan.goalId}` as any)}
+                          >
+                            <Play color="#FFF" size={16} />
+                            <Text style={styles.actionButtonText}>Do It</Text>
+                          </Pressable>
+                          <Pressable
+                            style={[styles.helpButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                            onPress={() => router.push('/(tabs)/chat')}
+                          >
+                            <MessageCircle color={colors.text} size={16} />
+                            <Text style={[styles.helpButtonText, { color: colors.text }]}>Need Help?</Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={[styles.completedCard, { backgroundColor: colors.success + '20' }]}>
+                        <Text style={[styles.completedText, { color: colors.success }]}>All caught up! 🎉</Text>
+                        <Pressable
+                          style={[styles.viewButton, { backgroundColor: colors.primary }]}
+                          onPress={() => router.push(`/game-plan/${gamePlan.goalId}` as any)}
+                        >
+                          <Text style={styles.viewButtonText}>View Plan</Text>
+                        </Pressable>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
             </View>
           )}
         </View>
@@ -246,6 +314,126 @@ const styles = StyleSheet.create({
   },
   goalsGrid: {
     gap: 16,
+  },
+  goalCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: 'hidden' as const,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  goalCardHeader: {
+    padding: 20,
+    gap: 8,
+  },
+  goalCardTop: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'flex-start' as const,
+    gap: 12,
+  },
+  goalCardTitle: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    flex: 1,
+  },
+  categoryBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  categoryText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    textTransform: 'capitalize' as const,
+  },
+  milestoneText: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+  },
+  nextActionCard: {
+    padding: 20,
+    paddingTop: 16,
+    gap: 12,
+  },
+  nextActionLabel: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+  },
+  nextActionTitle: {
+    fontSize: 17,
+    fontWeight: '600' as const,
+    lineHeight: 24,
+  },
+  actionButtons: {
+    flexDirection: 'row' as const,
+    gap: 10,
+    marginTop: 4,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  actionButtonText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '700' as const,
+  },
+  helpButton: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  helpButtonText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+  },
+  pausedCard: {
+    padding: 20,
+    paddingTop: 16,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+  },
+  pausedCardText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+  },
+  completedCard: {
+    padding: 20,
+    paddingTop: 16,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+  },
+  completedText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+  },
+  viewButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  viewButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600' as const,
   },
   emptyState: {
     alignItems: 'center' as const,
