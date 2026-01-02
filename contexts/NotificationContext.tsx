@@ -72,7 +72,22 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
         return;
       }
 
-      const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+      const projectId = process.env.EXPO_PUBLIC_PROJECT_ID || 
+        (Constants.expoConfig?.extra?.eas?.projectId ?? 
+        Constants.easConfig?.projectId);
+      
+      if (!projectId) {
+        console.log('No project ID available for push notifications');
+        setIsInitialized(true);
+        return;
+      }
+
+      if (Platform.OS === 'android' && !__DEV__ && Constants.appOwnership === 'expo') {
+        console.log('Android push notifications are not supported in Expo Go (SDK 53+). Use a development build.');
+        setIsInitialized(true);
+        return;
+      }
+
       const token = await Notifications.getExpoPushTokenAsync({ projectId });
       
       setExpoPushToken(token.data);
