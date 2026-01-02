@@ -1,7 +1,7 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState, useCallback } from 'react';
-import { Goal, User, GamificationData, ChatMessage, ThemeMode, NotificationSettings, GamePlan, Step, StepStatus, MilestoneStatus, SubtaskStatus } from '@/types';
+import { Goal, User, GamificationData, ChatMessage, ThemeMode, NotificationSettings, GamePlan, Step, StepStatus, MilestoneStatus, SubtaskStatus, ReminderConfig, CompletionType, ResourcePin } from '@/types';
 import { calculateLevel, getPointsToNextLevel, POINTS_CONFIG } from '@/constants/gamification';
 import { loadOpenAIKey } from '@/services/ai';
 
@@ -211,14 +211,14 @@ export const [AppProvider, useApp] = createContextHook(() => {
     await addPoints(POINTS_CONFIG.CHAT_INTERACTION);
   };
 
-  const updateGamePlan = async (goalId: string, updates: Partial<GamePlan>) => {
+  const updateGamePlan = useCallback(async (goalId: string, updates: Partial<GamePlan>) => {
     console.log('Updating game plan:', goalId);
     const newGamePlans = gamePlans.map(gp => 
       gp.goalId === goalId ? { ...gp, ...updates, updatedAt: new Date().toISOString() } : gp
     );
     setGamePlans(newGamePlans);
     await AsyncStorage.setItem(STORAGE_KEYS.GAME_PLANS, JSON.stringify(newGamePlans));
-  };
+  }, [gamePlans]);
 
   const getNextAction = (goalId: string): Step | null => {
     const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
@@ -233,8 +233,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
     return nextStep || null;
   };
 
-  const completeStep = async (goalId: string, milestoneId: string, stepId: string) => {
-    console.log('Completing step:', stepId);
+  const completeStep = async (goalId: string, milestoneId: string, stepId: string, completionType: CompletionType = 'standard', effortMinutes?: number) => {
+    console.log('Completing step:', stepId, 'type:', completionType);
     const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
     if (!gamePlan) return;
 
@@ -244,12 +244,27 @@ export const [AppProvider, useApp] = createContextHook(() => {
     const step = milestone.steps.find(s => s.stepId === stepId);
     if (!step) return;
 
+    const now = new Date().toISOString();
+    const effortLog = effortMinutes ? {
+      logId: `${stepId}-log-${Date.now()}`,
+      date: now,
+      effortMinutes,
+      completionType
+    } : undefined;
+
     const updatedMilestones = gamePlan.milestones.map(m => {
       if (m.milestoneId !== milestoneId) return m;
       
-      const updatedSteps = m.steps.map(s => 
-        s.stepId === stepId ? { ...s, status: 'completed' as StepStatus } : s
-      );
+      const updatedSteps = m.steps.map(s => {
+        if (s.stepId !== stepId) return s;
+        return {
+          ...s,
+          status: 'completed' as StepStatus,
+          completedAt: now,
+          completionType,
+          effortLogs: effortLog ? [...(s.effortLogs || []), effortLog] : s.effortLogs
+        };
+      });
 
       const allRequiredComplete = updatedSteps
         .filter(s => s.isRequired)
@@ -260,7 +275,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
           ...m, 
           steps: updatedSteps, 
           status: 'completed' as MilestoneStatus,
-          completedAt: new Date().toISOString()
+          completedAt: now
         };
       }
 
@@ -286,14 +301,18 @@ export const [AppProvider, useApp] = createContextHook(() => {
       } else if (justCompletedMilestone.isFinal) {
         await updateGamePlan(goalId, {
           milestones: updatedMilestones,
-          status: gamePlan.openEnded ? 'active' : 'completed'
+          status: gamePlan.openEnded ? 'active' : 'completed',
+          lastInteractionDate: now
         });
         await addPoints(POINTS_CONFIG.COMPLETE_GOAL);
         return;
       }
     }
 
-    await updateGamePlan(goalId, { milestones: updatedMilestones });
+    await updateGamePlan(goalId, { 
+      milestones: updatedMilestones,
+      lastInteractionDate: now
+    });
     await addPoints(10);
   };
 
@@ -302,6 +321,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
     const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
     if (!gamePlan) return;
 
+    const now = new Date().toISOString();
     const updatedMilestones = gamePlan.milestones.map(m => {
       if (m.milestoneId !== milestoneId) return m;
 
@@ -310,14 +330,18 @@ export const [AppProvider, useApp] = createContextHook(() => {
         return {
           ...s,
           status: 'skipped' as StepStatus,
-          skippedCount: (s.skippedCount || 0) + 1
+          skippedCount: (s.skippedCount || 0) + 1,
+          lastSkipped: now
         };
       });
 
       return { ...m, steps: updatedSteps };
     });
 
-    await updateGamePlan(goalId, { milestones: updatedMilestones });
+    await updateGamePlan(goalId, { 
+      milestones: updatedMilestones,
+      lastInteractionDate: now
+    });
   };
 
   const completeSubtask = async (
@@ -494,16 +518,23 @@ export const [AppProvider, useApp] = createContextHook(() => {
     goalId: string,
     milestoneId: string,
     stepId: string,
-    reminders: string[]
+    reminders: ReminderConfig
   ) => {
-    console.log('Updating step reminders:', stepId, reminders);
+    console.log('Updating step reminders:', stepId);
     const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
     if (!gamePlan) return;
 
+    const now = new Date().toISOString();
     const updatedMilestones = gamePlan.milestones.map(m => {
       if (m.milestoneId !== milestoneId) return m;
       const updatedSteps = m.steps.map(s => 
-        s.stepId === stepId ? { ...s, reminders } : s
+        s.stepId === stepId ? { 
+          ...s, 
+          reminders: {
+            ...reminders,
+            lastAdjusted: now
+          }
+        } : s
       );
       return { ...m, steps: updatedSteps };
     });
@@ -534,6 +565,91 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
     await updateGamePlan(goalId, { milestones: updatedMilestones });
   };
+
+  const completeFallbackAction = async (goalId: string, milestoneId: string, stepId: string, effortMinutes?: number) => {
+    console.log('Completing fallback action:', stepId);
+    await completeStep(goalId, milestoneId, stepId, 'fallback', effortMinutes);
+  };
+
+  const restartGoal = async (goalId: string, makeEasier: boolean = false) => {
+    console.log('Restarting goal:', goalId, 'makeEasier:', makeEasier);
+    const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
+    if (!gamePlan) return;
+
+    const now = new Date().toISOString();
+    const updatedMilestones = gamePlan.milestones.map((m, index) => {
+      const resetSteps = m.steps.map(s => ({
+        ...s,
+        status: 'not_started' as StepStatus,
+        completedAt: undefined,
+        completionType: undefined
+      }));
+
+      return {
+        ...m,
+        steps: resetSteps,
+        status: (index === 0 ? 'active' : 'locked') as MilestoneStatus,
+        completedAt: undefined
+      };
+    });
+
+    await updateGamePlan(goalId, {
+      status: 'active',
+      milestones: updatedMilestones,
+      lastInteractionDate: now,
+      dormantSince: undefined,
+      restartCount: (gamePlan.restartCount || 0) + 1
+    });
+  };
+
+  const addResourcePin = async (goalId: string, pin: Omit<ResourcePin, 'pinId' | 'createdAt'>) => {
+    console.log('Adding resource pin:', pin.title);
+    const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
+    if (!gamePlan) return;
+
+    const newPin: ResourcePin = {
+      ...pin,
+      pinId: `${goalId}-pin-${Date.now()}`,
+      createdAt: new Date().toISOString()
+    };
+
+    await updateGamePlan(goalId, {
+      resourcePins: [...(gamePlan.resourcePins || []), newPin]
+    });
+  };
+
+  const removeResourcePin = async (goalId: string, pinId: string) => {
+    console.log('Removing resource pin:', pinId);
+    const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
+    if (!gamePlan) return;
+
+    await updateGamePlan(goalId, {
+      resourcePins: (gamePlan.resourcePins || []).filter(p => p.pinId !== pinId)
+    });
+  };
+
+  const detectDormantGoals = useCallback(() => {
+    const now = new Date();
+    const DORMANT_THRESHOLD_DAYS = 7;
+
+    gamePlans.forEach(async (gp) => {
+      if (gp.status !== 'active' || gp.dormantSince) return;
+
+      const lastInteraction = gp.lastInteractionDate ? new Date(gp.lastInteractionDate) : new Date(gp.createdAt);
+      const daysSinceInteraction = Math.floor((now.getTime() - lastInteraction.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (daysSinceInteraction >= DORMANT_THRESHOLD_DAYS) {
+        console.log('Goal became dormant:', gp.goalTitle);
+        await updateGamePlan(gp.goalId, {
+          dormantSince: now.toISOString()
+        });
+      }
+    });
+  }, [gamePlans, updateGamePlan]);
+
+  useEffect(() => {
+    detectDormantGoals();
+  }, [detectDormantGoals]);
 
   return {
     user,
@@ -568,6 +684,10 @@ export const [AppProvider, useApp] = createContextHook(() => {
     deleteSubtask,
     updateStepReminders,
     reorderSteps,
+    completeFallbackAction,
+    restartGoal,
+    addResourcePin,
+    removeResourcePin,
     addPoints,
     addChatMessage,
     clearChatHistory,

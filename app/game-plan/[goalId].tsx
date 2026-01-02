@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { ChevronDown, ChevronRight, Check, Lock, Circle, CheckCircle, Play, Pause, Archive, Sparkles, Star } from 'lucide-react-native';
+import { ChevronDown, ChevronRight, Check, Lock, Circle, CheckCircle, Play, Pause, Archive, Sparkles, Star, AlertCircle, RefreshCw, Zap } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
 import { getTheme } from '@/constants/theme';
 import { Milestone, Step } from '@/types';
@@ -19,7 +19,7 @@ import { EditableSubtask } from '@/components/EditableSubtask';
 export default function GamePlanScreen() {
   const { goalId } = useLocalSearchParams<{ goalId: string }>();
   const router = useRouter();
-  const { gamePlans, theme, completeStep, skipStep, completeSubtask, pauseGamePlan, resumeGamePlan, archiveGamePlan, updateStepTitle, updateStepDetails, toggleStepRequired, updateSubtaskTitle, addSubtask, deleteSubtask } = useApp();
+  const { gamePlans, theme, completeStep, skipStep, completeSubtask, pauseGamePlan, resumeGamePlan, archiveGamePlan, updateStepTitle, updateStepDetails, toggleStepRequired, updateSubtaskTitle, addSubtask, deleteSubtask, completeFallbackAction } = useApp();
   const colors = getTheme(theme);
 
   const gamePlan = gamePlans.find(gp => gp.goalId === goalId);
@@ -81,8 +81,16 @@ export default function GamePlanScreen() {
     router.back();
   };
 
+  const handleCompleteFallback = async (milestone: Milestone, step: Step, effortMinutes?: number) => {
+    await completeFallbackAction(goalId, milestone.milestoneId, step.stepId, effortMinutes);
+  };
+
   const isCelebrating = gamePlan.status === 'completed';
   const finalMilestone = gamePlan.milestones.find(m => m.isFinal && m.status === 'completed');
+  const isDormant = !!gamePlan.dormantSince;
+  const daysSinceDormant = isDormant ? Math.floor(
+    (new Date().getTime() - new Date(gamePlan.dormantSince!).getTime()) / (1000 * 60 * 60 * 24)
+  ) : 0;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
@@ -113,6 +121,31 @@ export default function GamePlanScreen() {
             >
               <Text style={styles.resumeButtonText}>Resume</Text>
             </Pressable>
+          </View>
+        )}
+
+        {isDormant && gamePlan.status === 'active' && (
+          <View style={[styles.dormantBanner, { backgroundColor: colors.accent + '15', borderColor: colors.accent }]}>
+            <AlertCircle color={colors.accent} size={24} />
+            <View style={styles.dormantContent}>
+              <Text style={[styles.dormantTitle, { color: colors.text }]}>Haven&apos;t seen you in {daysSinceDormant} days</Text>
+              <Text style={[styles.dormantText, { color: colors.textSecondary }]}>No pressure. Ready to pick this back up?</Text>
+              <View style={styles.dormantActions}>
+                <Pressable
+                  style={[styles.dormantButton, { backgroundColor: colors.primary }]}
+                  onPress={handleResume}
+                >
+                  <RefreshCw color="#FFF" size={16} />
+                  <Text style={styles.dormantButtonText}>Continue</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.dormantButton, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}
+                  onPress={() => router.push('/(tabs)/chat')}
+                >
+                  <Text style={[styles.dormantButtonText, { color: colors.text }]}>Make easier</Text>
+                </Pressable>
+              </View>
+            </View>
           </View>
         )}
 
@@ -336,6 +369,24 @@ export default function GamePlanScreen() {
                                     />
                                   )}
 
+                                  {step.fallbackAction && step.status !== 'completed' && step.status !== 'skipped' && (
+                                    <View style={[styles.fallbackContainer, { backgroundColor: colors.surface }]}>
+                                      <Zap color={colors.accent} size={16} />
+                                      <View style={{ flex: 1 }}>
+                                        <Text style={[styles.fallbackTitle, { color: colors.text }]}>Easier option</Text>
+                                        <Text style={[styles.fallbackText, { color: colors.textSecondary }]}>
+                                          {step.fallbackAction.title}
+                                        </Text>
+                                      </View>
+                                      <Pressable
+                                        style={[styles.fallbackButton, { backgroundColor: colors.accent }]}
+                                        onPress={() => handleCompleteFallback(milestone, step, step.fallbackAction?.effortMinutes)}
+                                      >
+                                        <Text style={styles.fallbackButtonText}>Do this</Text>
+                                      </Pressable>
+                                    </View>
+                                  )}
+
                                   {stepExpanded && hasSubtasks && (
                                     <View style={styles.subtasksContainer}>
                                       {step.subtasks.map((subtask) => (
@@ -362,7 +413,9 @@ export default function GamePlanScreen() {
                                         style={[styles.stepButton, { backgroundColor: colors.success }]}
                                         onPress={() => handleCompleteStep(milestone, step)}
                                       >
-                                        <Text style={styles.stepButtonText}>Complete</Text>
+                                        <Text style={styles.stepButtonText}>
+                                          {step.allowEffortBased ? `Worked on it` : 'Complete'}
+                                        </Text>
                                       </Pressable>
                                       {!step.isRequired && (
                                         <Pressable
@@ -490,6 +543,69 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: '700' as const,
+  },
+  dormantBanner: {
+    flexDirection: 'row' as const,
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+    borderWidth: 1,
+  },
+  dormantContent: {
+    flex: 1,
+    gap: 8,
+  },
+  dormantTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+  },
+  dormantText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  dormantActions: {
+    flexDirection: 'row' as const,
+    gap: 8,
+    marginTop: 4,
+  },
+  dormantButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  dormantButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600' as const,
+  },
+  fallbackContainer: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 10,
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  fallbackTitle: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    marginBottom: 2,
+  },
+  fallbackText: {
+    fontSize: 13,
+  },
+  fallbackButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  fallbackButtonText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600' as const,
   },
   timeline: {
     gap: 16,

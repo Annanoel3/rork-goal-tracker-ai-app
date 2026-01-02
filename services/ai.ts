@@ -353,9 +353,9 @@ ${params.conversationHistory.map(m => `${m.role}: ${m.content}`).join('\n')}
 
 Create a game plan that:
 1. Adapts to the goal type (${params.category}):
-   - Habit goals: Focus on reminders and check-ins
+   - Habit goals: Focus on reminders and check-ins, openEnded=true
    - Skill/learning goals: Include practice schedules and resources
-   - Lifestyle/health goals: Build daily/weekly habits
+   - Lifestyle/health goals: Build daily/weekly habits, openEnded=true
    - Project/business goals: Structured milestones with clear deliverables
    - Financial goals: Trackable milestones with progress metrics
    - Creative goals: Regular creation schedule with prompts
@@ -365,8 +365,15 @@ Create a game plan that:
    - requiresContext=false for obvious/habitual actions (subtasks collapsed by default)
    - Include subtasks for steps that need breakdown
    - Mark isRequired=true for critical steps, false for optional
+   - For long/ambiguous tasks, set allowEffortBased=true and provide effortMinutesTarget
+   - For challenging steps, optionally provide fallbackAction with a simpler alternative
 
 3. Determines if goal is openEnded (ongoing habits vs. finite projects)
+
+4. Configure reminders appropriately:
+   - Use ReminderConfig structure with frequency and enabled status
+   - Don't over-remind for project-based goals
+   - Habit goals need consistent reminders
 
 Return ONLY valid JSON with this structure:
 {
@@ -380,6 +387,7 @@ Return ONLY valid JSON with this structure:
       "description": "optional short description",
       "orderIndex": 0,
       "isFinal": false,
+      "version": 1,
       "steps": [
         {
           "title": "clear action title",
@@ -388,10 +396,23 @@ Return ONLY valid JSON with this structure:
           "isRequired": true,
           "requiresContext": true/false,
           "dueCadence": "daily/weekly/etc or null",
-          "reminders": ["reminder text"] or [],
+          "reminders": {
+            "enabled": true/false,
+            "frequency": "daily/weekly/biweekly/monthly",
+            "timeOfDay": "09:00" or null,
+            "message": "reminder text" or null
+          } or null,
+          "allowEffortBased": true/false,
+          "effortMinutesTarget": number or null,
+          "fallbackAction": {
+            "title": "easier alternative title",
+            "details": "explanation",
+            "effortMinutes": number
+          } or null,
           "subtasks": [
             {
-              "title": "subtask title"
+              "title": "subtask title",
+              "isRequired": false
             }
           ]
         }
@@ -426,6 +447,7 @@ Return ONLY valid JSON with this structure:
       status: 'active',
       openEnded: parsed.openEnded || false,
       category: parsed.category,
+      lastInteractionDate: now,
       milestones: parsed.milestones.map((m: any, mIndex: number) => ({
         milestoneId: `${goalId}-m${mIndex}`,
         title: m.title,
@@ -433,6 +455,7 @@ Return ONLY valid JSON with this structure:
         orderIndex: m.orderIndex,
         status: mIndex === 0 ? 'active' : 'locked',
         isFinal: m.isFinal || mIndex === parsed.milestones.length - 1,
+        version: m.version || 1,
         steps: m.steps.map((s: any, sIndex: number) => ({
           stepId: `${goalId}-m${mIndex}-s${sIndex}`,
           title: s.title,
@@ -441,12 +464,21 @@ Return ONLY valid JSON with this structure:
           status: 'not_started',
           isRequired: s.isRequired !== false,
           dueCadence: s.dueCadence,
-          reminders: s.reminders || [],
+          reminders: s.reminders ? {
+            enabled: s.reminders.enabled !== false,
+            frequency: s.reminders.frequency || 'weekly',
+            timeOfDay: s.reminders.timeOfDay,
+            message: s.reminders.message
+          } : undefined,
           requiresContext: s.requiresContext !== false,
+          allowEffortBased: s.allowEffortBased || false,
+          effortMinutesTarget: s.effortMinutesTarget,
+          fallbackAction: s.fallbackAction,
           subtasks: (s.subtasks || []).map((st: any, stIndex: number) => ({
             subtaskId: `${goalId}-m${mIndex}-s${sIndex}-st${stIndex}`,
             title: st.title,
             status: 'not_started',
+            isRequired: st.isRequired || false
           })),
         })),
       })),
