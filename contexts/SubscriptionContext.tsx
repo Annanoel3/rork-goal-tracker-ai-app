@@ -15,32 +15,49 @@ const getRCToken = () => {
   });
 };
 
-const configureRevenueCat = async () => {
-  const apiKey = getRCToken();
-  if (!apiKey) {
-    console.warn('RevenueCat API key not configured');
-    return false;
-  }
-
-  try {
-    await Purchases.configure({ apiKey });
-    console.log('RevenueCat configured successfully');
-    return true;
-  } catch (error) {
-    console.error('Failed to configure RevenueCat:', error);
-    return false;
-  }
-};
-
-configureRevenueCat();
-
 export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
   const [isPremium, setIsPremium] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isConfigured, setIsConfigured] = useState(false);
+
+  useEffect(() => {
+    const configureRevenueCat = async () => {
+      if (Platform.OS === 'web') {
+        console.log('RevenueCat: Skipping configuration on web');
+        setIsConfigured(false);
+        setIsLoading(false);
+        return;
+      }
+
+      const apiKey = getRCToken();
+      if (!apiKey) {
+        console.warn('RevenueCat: API key not configured');
+        setIsConfigured(false);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        await Purchases.configure({ apiKey });
+        console.log('RevenueCat: Configured successfully');
+        setIsConfigured(true);
+      } catch (error) {
+        console.error('RevenueCat: Configuration failed:', error);
+        setIsConfigured(false);
+        setIsLoading(false);
+      }
+    };
+
+    configureRevenueCat();
+  }, []);
 
   const customerInfoQuery = useQuery({
-    queryKey: ['customerInfo'],
+    queryKey: ['customerInfo', isConfigured],
     queryFn: async () => {
+      if (!isConfigured) {
+        console.log('RevenueCat: Not configured, skipping customer info fetch');
+        return null;
+      }
       try {
         const info = await Purchases.getCustomerInfo();
         return info;
@@ -49,12 +66,17 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
         return null;
       }
     },
+    enabled: isConfigured,
     refetchInterval: 60000,
   });
 
   const offeringsQuery = useQuery({
-    queryKey: ['offerings'],
+    queryKey: ['offerings', isConfigured],
     queryFn: async () => {
+      if (!isConfigured) {
+        console.log('RevenueCat: Not configured, skipping offerings fetch');
+        return null;
+      }
       try {
         const offerings = await Purchases.getOfferings();
         return offerings;
@@ -63,6 +85,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
         return null;
       }
     },
+    enabled: isConfigured,
   });
 
   const purchaseMutation = useMutation({
