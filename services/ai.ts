@@ -178,9 +178,16 @@ STEP STRUCTURE:
 - details: Optional explanation or guidance
 - isRequired: true for critical steps, false for optional
 - requiresContext: true if abstract/strategic/unfamiliar (subtasks shown by default), false if obvious/habitual (subtasks hidden by default)
-- subtasks: Break down complex steps into checkable items
+- subtasks: Break down complex steps - USE INTERACTIVE SUBTASKS FOR BUSINESS/PROJECT GOALS
+  - For business/project goals: Create subtasks that are placeholders for user input (e.g., "Feature 1:", "Feature 2:", "Note:")
+  - For habit goals: Create simple checkbox subtasks
 - dueCadence: "daily", "weekly", "monthly", or null
-- reminders: Array of reminder text or empty
+- reminders: CRITICAL - Most goals should have push notifications enabled to keep users on track
+  - Habit goals: Daily or weekly reminders at specific times
+  - Project goals: Weekly check-ins or milestone-based reminders
+  - Learning goals: Regular practice reminders
+  - Financial goals: Monthly review reminders
+  - Only skip reminders if the goal is purely self-driven with no time component
 
 IMPORTANT RULES:
 - The user can edit everything inline in the UI
@@ -374,9 +381,19 @@ Create a game plan that:
 3. Determines if goal is openEnded (ongoing habits vs. finite projects)
 
 4. Configure reminders appropriately:
+   - IMPORTANT: Almost all goals should have reminders enabled by default
    - Use ReminderConfig structure with frequency and enabled status
-   - Don't over-remind for project-based goals
-   - Habit goals need consistent reminders
+   - Habit goals: Daily/weekly reminders at chosen times
+   - Project goals: Weekly check-ins, not daily (but still enabled)
+   - Learning goals: Practice reminders 2-3 times per week
+   - Financial goals: Monthly review reminders
+   - Only disable reminders if user explicitly doesn't want them
+
+5. Create INTERACTIVE steps for business/project goals:
+   - For "Define features" steps: Create subtasks like "Feature 1: [user fills in]", "Feature 2: [user fills in]"
+   - For planning steps: Use details field to prompt user to take notes
+   - For research steps: Create subtasks as placeholders for findings
+   - The app should feel like a workspace, not just a checklist
 
 Return ONLY valid JSON with this structure:
 {

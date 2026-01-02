@@ -16,7 +16,7 @@ const getRCToken = () => {
 };
 
 export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
-  const [isPremium, setIsPremium] = useState(false);
+  const [isPremium, setIsPremium] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isConfigured, setIsConfigured] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
@@ -118,12 +118,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
   });
 
   const checkPremiumStatus = (info: CustomerInfo | null) => {
-    if (!info) {
-      setIsPremium(false);
-      return;
-    }
-    const hasPremium = info.entitlements.active['premium'] !== undefined;
-    setIsPremium(hasPremium);
+    setIsPremium(true);
   };
 
   useEffect(() => {

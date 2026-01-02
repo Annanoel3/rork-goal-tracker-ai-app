@@ -79,9 +79,7 @@ export default function ChatScreen() {
       await addChatMessage(assistantMessage);
 
       const shouldCreateGoal = 
-        aiResponse.toLowerCase().includes('check it out on your goals page') ||
-        aiResponse.toLowerCase().includes('turned this into') ||
-        (aiResponse.toLowerCase().includes("i've") && aiResponse.toLowerCase().includes('game plan'));
+        aiResponse.toLowerCase().includes('check it out on your goals page');
 
       if (shouldCreateGoal) {
         setTimeout(async () => {
@@ -102,8 +100,9 @@ export default function ChatScreen() {
             const gamePlan = await generateGamePlan(gamePlanParams);
             await addGamePlan(gamePlan);
 
-            console.log('Game plan created, navigating to goals page in 6 seconds...');
+            console.log('Game plan created successfully, navigating to goals page in 6 seconds...');
             setTimeout(() => {
+              console.log('Navigating to goals page now');
               router.push('/(tabs)');
             }, 6000);
           } catch (error) {
@@ -117,7 +116,7 @@ export default function ChatScreen() {
             setMessages([...updatedMessages, errorMessage]);
             await addChatMessage(errorMessage);
           }
-        }, 1000);
+        }, 500);
       }
     } catch (error: any) {
       console.error('Chat error:', error);
