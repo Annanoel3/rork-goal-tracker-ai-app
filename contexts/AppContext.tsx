@@ -174,29 +174,35 @@ export const [AppProvider, useApp] = createContextHook(() => {
     }
   };
 
-  const addPoints = async (points: number) => {
-    const newTotalPoints = gamification.totalPoints + points;
-    const newLevel = calculateLevel(newTotalPoints);
-    const pointsToNext = getPointsToNextLevel(newTotalPoints, newLevel);
-    
-    const leveledUp = newLevel > gamification.level;
+  const addPoints = useCallback(async (points: number) => {
+    setGamification(prev => {
+      const newTotalPoints = prev.totalPoints + points;
+      const newLevel = calculateLevel(newTotalPoints);
+      const pointsToNext = getPointsToNextLevel(newTotalPoints, newLevel);
+      
+      const newGamification: GamificationData = {
+        ...prev,
+        totalPoints: newTotalPoints,
+        level: newLevel,
+        pointsToNextLevel: pointsToNext,
+      };
 
-    const newGamification: GamificationData = {
-      ...gamification,
-      totalPoints: newTotalPoints,
-      level: newLevel,
-      pointsToNextLevel: pointsToNext,
-    };
+      AsyncStorage.setItem(STORAGE_KEYS.GAMIFICATION, JSON.stringify(newGamification));
+      
+      return newGamification;
+    });
 
-    setGamification(newGamification);
-    await AsyncStorage.setItem(STORAGE_KEYS.GAMIFICATION, JSON.stringify(newGamification));
+    setUser(prev => {
+      if (!prev) return prev;
+      const newTotalPoints = prev.points + points;
+      const newLevel = calculateLevel(newTotalPoints);
+      const updatedUser = { ...prev, points: newTotalPoints, level: newLevel };
+      AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
+      return updatedUser;
+    });
 
-    if (user) {
-      await updateUser({ points: newTotalPoints, level: newLevel });
-    }
-
-    return { leveledUp, newLevel };
-  };
+    return { leveledUp: true, newLevel: 0 };
+  }, []);
 
   const addChatMessage = async (message: ChatMessage) => {
     const newHistory = [...chatHistory, message];
@@ -240,22 +246,37 @@ export const [AppProvider, useApp] = createContextHook(() => {
     await AsyncStorage.setItem(STORAGE_KEYS.HAS_ONBOARDED, JSON.stringify(true));
   };
 
-  const addGamePlan = async (gamePlan: GamePlan) => {
+  const addGamePlan = useCallback(async (gamePlan: GamePlan) => {
     console.log('Adding game plan:', gamePlan.goalTitle);
-    console.log('Current gamePlans count:', gamePlans.length);
-    const newGamePlans = [...gamePlans, gamePlan];
-    console.log('New gamePlans count:', newGamePlans.length);
-    setGamePlans(newGamePlans);
-    await AsyncStorage.setItem(STORAGE_KEYS.GAME_PLANS, JSON.stringify(newGamePlans));
-    console.log('Game plans saved to AsyncStorage');
+    console.log('Game plan data:', JSON.stringify(gamePlan, null, 2));
     
-    const verification = await AsyncStorage.getItem(STORAGE_KEYS.GAME_PLANS);
-    console.log('Verification - stored game plans:', verification ? JSON.parse(verification).length : 0);
-    
-    await addPoints(POINTS_CONFIG.CHAT_INTERACTION);
-    
-    return true;
-  };
+    try {
+      let newGamePlans: GamePlan[];
+      setGamePlans(prev => {
+        console.log('Current gamePlans count:', prev.length);
+        newGamePlans = [...prev, gamePlan];
+        console.log('New gamePlans count:', newGamePlans.length);
+        return newGamePlans;
+      });
+      
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      await AsyncStorage.setItem(STORAGE_KEYS.GAME_PLANS, JSON.stringify(newGamePlans!));
+      console.log('Game plans saved to AsyncStorage');
+      
+      const verification = await AsyncStorage.getItem(STORAGE_KEYS.GAME_PLANS);
+      const verifiedPlans = verification ? JSON.parse(verification) : [];
+      console.log('Verification - stored game plans:', verifiedPlans.length);
+      console.log('Verification - goal titles:', verifiedPlans.map((gp: GamePlan) => gp.goalTitle));
+      
+      await addPoints(POINTS_CONFIG.CHAT_INTERACTION);
+      
+      return true;
+    } catch (error) {
+      console.error('Error adding game plan:', error);
+      return false;
+    }
+  }, [addPoints]);
 
   const updateGamePlan = useCallback(async (goalId: string, updates: Partial<GamePlan>) => {
     console.log('Updating game plan:', goalId);
