@@ -18,10 +18,12 @@ import { getTheme } from '@/constants/theme';
 import { chatWithAI, generateGamePlan, GamePlanGenerationParams } from '@/services/ai';
 import { BannerAd } from '@/components/BannerAd';
 import { ChatMessage } from '@/types';
+import { useRouter } from 'expo-router';
 
 export default function ChatScreen() {
   const { addGamePlan, addChatMessage, chatHistory, theme } = useApp();
   const colors = getTheme(theme);
+  const router = useRouter();
 
   const [messages, setMessages] = useState<ChatMessage[]>(
     chatHistory.length > 0
@@ -77,25 +79,14 @@ export default function ChatScreen() {
       await addChatMessage(assistantMessage);
 
       const shouldCreateGoal = 
-        aiResponse.toLowerCase().includes('set that up') ||
-        aiResponse.toLowerCase().includes('turn this into') ||
-        aiResponse.toLowerCase().includes('create a game plan') ||
-        (conversationHistory.length >= 4 && (
-          (aiResponse.toLowerCase().includes('want me to') || aiResponse.toLowerCase().includes('should i')) &&
-          (aiResponse.toLowerCase().includes('set') || aiResponse.toLowerCase().includes('plan'))
-        ));
+        aiResponse.toLowerCase().includes('check it out on your goals page') ||
+        aiResponse.toLowerCase().includes('turned this into') ||
+        (aiResponse.toLowerCase().includes("i've") && aiResponse.toLowerCase().includes('game plan'));
 
-      if (shouldCreateGoal && userMessage.content.toLowerCase().match(/\b(yes|sure|ok|okay|go ahead|please|sounds good|let'?s do it|do it|yeah|yep|absolutely)\b/)) {
+      if (shouldCreateGoal) {
         setTimeout(async () => {
           try {
-            const creatingMessage: ChatMessage = {
-              id: (Date.now() + 2).toString(),
-              role: 'assistant',
-              content: 'Perfect! Creating your game plan now... ⚡',
-              timestamp: new Date().toISOString(),
-            };
-            setMessages([...updatedMessages, creatingMessage]);
-            await addChatMessage(creatingMessage);
+            console.log('Creating game plan automatically...');
 
             const goalTitle = extractGoalTitle(conversationHistory);
             const goalDescription = extractGoalDescription(conversationHistory);
@@ -111,14 +102,10 @@ export default function ChatScreen() {
             const gamePlan = await generateGamePlan(gamePlanParams);
             await addGamePlan(gamePlan);
 
-            const successMessage: ChatMessage = {
-              id: (Date.now() + 3).toString(),
-              role: 'assistant',
-              content: '🎉 Your game plan is ready! Check it out in the Goals tab. You can see your full plan and today\'s next action.',
-              timestamp: new Date().toISOString(),
-            };
-            setMessages([...updatedMessages, creatingMessage, successMessage]);
-            await addChatMessage(successMessage);
+            console.log('Game plan created, navigating to goals page in 6 seconds...');
+            setTimeout(() => {
+              router.push('/(tabs)');
+            }, 6000);
           } catch (error) {
             console.error('Error creating game plan:', error);
             const errorMessage: ChatMessage = {

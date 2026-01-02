@@ -58,7 +58,6 @@ export default function GoalsScreen() {
     );
   }
 
-  const activeGoals = goals.filter(g => g.isActive);
   const activeGamePlans = gamePlans.filter(gp => gp.status === 'active' || gp.status === 'paused');
 
   return (
@@ -83,7 +82,7 @@ export default function GoalsScreen() {
         <Animated.View style={{ opacity: fadeAnim }}>
         <View style={[styles.statsCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.primary }]}>{activeGoals.length}</Text>
+            <Text style={[styles.statValue, { color: colors.primary }]}>{activeGamePlans.length}</Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Active Goals</Text>
           </View>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
