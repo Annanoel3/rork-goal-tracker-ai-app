@@ -30,7 +30,7 @@ export default function ChatScreen() {
           {
             id: '1',
             role: 'assistant',
-            content: "Hi! 🎯 I'm here to help you create or adjust your goals. What would you like to work on?",
+            content: "Hi! I'm here to help you think through your goals. What's on your mind?",
             timestamp: new Date().toISOString(),
           },
         ]
@@ -76,11 +76,14 @@ export default function ChatScreen() {
       await addChatMessage(userMessage);
       await addChatMessage(assistantMessage);
 
-      if (
-        aiResponse.toLowerCase().includes('ready to start') ||
-        aiResponse.toLowerCase().includes("let's get started") ||
-        aiResponse.toLowerCase().includes('sounds good')
-      ) {
+      const shouldCreateGoal = 
+        aiResponse.toLowerCase().includes('turn this into a simple plan') ||
+        aiResponse.toLowerCase().includes('add it to your goals page') ||
+        (conversationHistory.length >= 4 && (
+          aiResponse.toLowerCase().includes('create') && aiResponse.toLowerCase().includes('goal')
+        ));
+
+      if (shouldCreateGoal && userMessage.content.toLowerCase().match(/\b(yes|sure|ok|okay|go ahead|please|sounds good|let'?s do it)\b/)) {
         setTimeout(async () => {
           try {
             const goal = await generateGoalFromConversation(conversationHistory);
