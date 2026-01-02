@@ -49,7 +49,7 @@ export const isOpenAIInitialized = () => {
   const hasEnvKey = !!process.env.EXPO_PUBLIC_OPENAI_API_KEY;
   const hasClient = openaiClient !== null;
   console.log('Checking OpenAI status - env key:', hasEnvKey, 'client:', hasClient);
-  return hasEnvKey || hasClient;
+  return hasClient;
 };
 
 export const getOpenAIStatus = () => ({
