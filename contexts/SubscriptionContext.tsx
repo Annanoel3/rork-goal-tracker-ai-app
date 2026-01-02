@@ -19,6 +19,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
   const [isPremium, setIsPremium] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isConfigured, setIsConfigured] = useState(false);
+  const [configError, setConfigError] = useState<string | null>(null);
 
   useEffect(() => {
     const configureRevenueCat = async () => {
@@ -26,6 +27,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
         console.log('RevenueCat: Skipping configuration on web');
         setIsConfigured(false);
         setIsLoading(false);
+        setConfigError('Web platform not supported');
         return;
       }
 
@@ -34,6 +36,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
         console.warn('RevenueCat: API key not configured');
         setIsConfigured(false);
         setIsLoading(false);
+        setConfigError('API key not configured');
         return;
       }
 
@@ -41,10 +44,12 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
         await Purchases.configure({ apiKey });
         console.log('RevenueCat: Configured successfully');
         setIsConfigured(true);
+        setConfigError(null);
       } catch (error) {
         console.error('RevenueCat: Configuration failed:', error);
         setIsConfigured(false);
         setIsLoading(false);
+        setConfigError(error instanceof Error ? error.message : 'Configuration failed');
       }
     };
 
@@ -54,7 +59,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
   const customerInfoQuery = useQuery({
     queryKey: ['customerInfo', isConfigured],
     queryFn: async () => {
-      if (!isConfigured) {
+      if (!isConfigured || Platform.OS === 'web') {
         console.log('RevenueCat: Not configured, skipping customer info fetch');
         return null;
       }
@@ -66,14 +71,15 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
         return null;
       }
     },
-    enabled: isConfigured,
+    enabled: isConfigured && Platform.OS !== 'web',
     refetchInterval: 60000,
+    retry: false,
   });
 
   const offeringsQuery = useQuery({
     queryKey: ['offerings', isConfigured],
     queryFn: async () => {
-      if (!isConfigured) {
+      if (!isConfigured || Platform.OS === 'web') {
         console.log('RevenueCat: Not configured, skipping offerings fetch');
         return null;
       }
@@ -85,7 +91,8 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
         return null;
       }
     },
-    enabled: isConfigured,
+    enabled: isConfigured && Platform.OS !== 'web',
+    retry: false,
   });
 
   const purchaseMutation = useMutation({
@@ -160,5 +167,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     restorePurchases,
     isRestoring: restoreMutation.isPending,
     isPurchasing: purchaseMutation.isPending,
+    isConfigured,
+    configError,
   };
 });

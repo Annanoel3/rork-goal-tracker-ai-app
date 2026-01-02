@@ -18,9 +18,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 export default function SubscriptionScreen() {
   const { theme } = useApp();
-  const { isPremium, offerings, purchasePackage, restorePurchases, isPurchasing, isRestoring } = useSubscription();
+  const { isPremium, offerings, purchasePackage, restorePurchases, isPurchasing, isRestoring, isConfigured } = useSubscription();
   const colors = getTheme(theme);
   const [selectedPackage, setSelectedPackage] = useState<string>('monthly');
+
+  if (!theme) {
+    return null;
+  }
 
   const handlePurchase = async () => {
     if (!offerings) {
@@ -143,7 +147,7 @@ export default function SubscriptionScreen() {
             })}
           </View>
 
-          {offerings && offerings.availablePackages.length > 0 ? (
+          {isConfigured && offerings && offerings.availablePackages.length > 0 ? (
             <View style={styles.packagesSection}>
               {offerings.availablePackages.map((pkg) => {
                 const isSelected = pkg.identifier === selectedPackage;
@@ -182,7 +186,9 @@ export default function SubscriptionScreen() {
           ) : (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading plans...</Text>
+              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+                {!isConfigured ? 'Initializing...' : 'Loading plans...'}
+              </Text>
             </View>
           )}
 
