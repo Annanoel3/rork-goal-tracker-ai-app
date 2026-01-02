@@ -75,13 +75,16 @@ export default function OnboardingScreen() {
 
     try {
       if (conversationStage === 'name') {
-        const name = inputText.trim();
+        const rawName = inputText.trim();
+        const name = rawName.split(' ').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        ).join(' ');
         await createUser(name);
         
         const assistantMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: `Great to meet you, ${name}! 🌟 Now, what goal would you like to work on? It could be anything - fitness, career, learning a new skill, or something else entirely. Tell me about what you want to achieve!`,
+          content: `Great to meet you, ${name}! 🌟\n\nNow, what goal would you like to work on? It could be anything - fitness, career, learning a new skill, or something else entirely. Tell me about what you want to achieve!`,
           timestamp: new Date().toISOString(),
         };
         setMessages([...newMessages, assistantMessage]);

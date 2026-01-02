@@ -68,7 +68,7 @@ export default function GoalsScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
         <View style={styles.header}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={[styles.greeting, { color: colors.text }]}>
               Hey, {user?.name || 'there'}! 👋
             </Text>
@@ -82,8 +82,8 @@ export default function GoalsScreen() {
         </View>
         </Animated.View>
 
-        <Animated.View style={{ opacity: fadeAnim }}>
-        <View style={[styles.statsCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+        <View style={[styles.statsCard, { backgroundColor: colors.cardBackground }]}>
           <View style={styles.statItem}>
             <View style={styles.statValueRow}>
               <Text style={[styles.statValue, { color: colors.primary }]}>{activeGamePlans.length}</Text>
@@ -274,26 +274,25 @@ const styles = StyleSheet.create({
     alignItems: 'center' as const,
   },
   greeting: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '800' as const,
-    letterSpacing: -0.5,
+    letterSpacing: -1,
   },
   subtitle: {
     fontSize: 17,
-    fontWeight: '500' as const,
-    marginTop: 6,
-    opacity: 0.8,
+    fontWeight: '600' as const,
+    marginTop: 8,
+    opacity: 0.7,
   },
   statsCard: {
     flexDirection: 'row' as const,
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 24,
-    borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
   },
   statItem: {
     flex: 1,
@@ -358,14 +357,13 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   goalCard: {
-    borderRadius: 20,
-    borderWidth: 1,
+    borderRadius: 24,
     overflow: 'hidden' as const,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
   },
   goalCardHeader: {
     padding: 20,
@@ -480,8 +478,13 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center' as const,
     padding: 48,
-    borderRadius: 24,
-    gap: 16,
+    borderRadius: 28,
+    gap: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
   emptyTitle: {
     fontSize: 24,

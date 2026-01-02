@@ -17,18 +17,42 @@ export default function LeaderboardScreen() {
   const { user, updateUser, theme } = useApp();
   const colors = getTheme(theme);
 
-  const mockLeaderboard = [
-    { userId: '1', name: 'Alex Chen', points: 15420, rank: 1, level: 12 },
-    { userId: '2', name: 'Sarah Johnson', points: 14890, rank: 2, level: 11 },
-    { userId: '3', name: 'Mike Williams', points: 13250, rank: 3, level: 11 },
-    { userId: '4', name: 'Emma Davis', points: 12100, rank: 4, level: 10 },
-    { userId: '5', name: 'James Wilson', points: 11800, rank: 5, level: 10 },
-    { userId: '6', name: 'Olivia Brown', points: 10950, rank: 6, level: 9 },
-    { userId: '7', name: 'Daniel Martinez', points: 10200, rank: 7, level: 9 },
-    { userId: '8', name: 'Sophia Garcia', points: 9800, rank: 8, level: 9 },
-    { userId: '9', name: 'Liam Anderson', points: 9350, rank: 9, level: 8 },
-    { userId: '10', name: 'Ava Taylor', points: 8900, rank: 10, level: 8 },
-  ];
+  const generateLeaderboard = () => {
+    if (!user) return [];
+    
+    const leaderboard = [{
+      userId: user.id,
+      name: user.name,
+      points: user.points,
+      rank: 1,
+      level: user.level,
+    }];
+
+    const names = [
+      'Alex Chen', 'Sarah Johnson', 'Mike Williams', 'Emma Davis', 'James Wilson',
+      'Olivia Brown', 'Daniel Martinez', 'Sophia Garcia', 'Liam Anderson', 'Ava Taylor'
+    ];
+    
+    const usedNames = names.filter(name => name !== user.name);
+    
+    for (let i = 0; i < 9; i++) {
+      const pointsOffset = Math.floor(Math.random() * 2000) + 100;
+      leaderboard.push({
+        userId: `other-${i}`,
+        name: usedNames[i % usedNames.length],
+        points: Math.max(0, user.points - pointsOffset - (i * 500)),
+        rank: i + 2,
+        level: Math.max(1, user.level - Math.floor(i / 3)),
+      });
+    }
+    
+    return leaderboard.sort((a, b) => b.points - a.points).map((entry, index) => ({
+      ...entry,
+      rank: index + 1
+    }));
+  };
+
+  const leaderboard = generateLeaderboard();
 
   const getRankIcon = (rank: number) => {
     switch (rank) {
@@ -106,7 +130,7 @@ export default function LeaderboardScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Top 10 Leaders</Text>
           <View style={styles.leaderboardList}>
-            {mockLeaderboard.map((entry) => (
+            {leaderboard.map((entry) => (
               <View
                 key={entry.userId}
                 style={[
@@ -127,9 +151,16 @@ export default function LeaderboardScreen() {
                     )}
                   </View>
                   <View style={styles.leaderboardInfo}>
-                    <Text style={[styles.leaderboardName, { color: colors.text }]} numberOfLines={1}>
-                      {entry.name}
-                    </Text>
+                    <View style={styles.leaderboardNameRow}>
+                      <Text style={[styles.leaderboardName, { color: colors.text }]} numberOfLines={1}>
+                        {entry.name}
+                      </Text>
+                      {entry.userId === user?.id && (
+                        <View style={[styles.youBadge, { backgroundColor: colors.primary }]}>
+                          <Text style={styles.youBadgeText}>YOU</Text>
+                        </View>
+                      )}
+                    </View>
                     <Text style={[styles.leaderboardPoints, { color: colors.textSecondary }]}>
                       {entry.points.toLocaleString()} pts
                     </Text>
@@ -160,22 +191,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 12,
   },
   title: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '800' as const,
-    marginTop: 12,
-    letterSpacing: -0.5,
+    marginTop: 16,
+    letterSpacing: -1,
   },
   subtitle: {
     fontSize: 16,
@@ -280,12 +311,12 @@ const styles = StyleSheet.create({
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
     padding: 18,
-    borderRadius: 16,
+    borderRadius: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowRadius: 12,
+    elevation: 4,
   },
   leaderboardLeft: {
     flexDirection: 'row' as const,
@@ -306,6 +337,23 @@ const styles = StyleSheet.create({
   },
   leaderboardInfo: {
     flex: 1,
+  },
+  leaderboardNameRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    marginBottom: 2,
+  },
+  youBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  youBadgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '800' as const,
+    letterSpacing: 0.3,
   },
   leaderboardName: {
     fontSize: 17,
