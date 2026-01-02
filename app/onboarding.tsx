@@ -180,7 +180,7 @@ export default function OnboardingScreen() {
           >
             <Sparkles color="#FFF" size={32} fill="#FFF" />
           </Animated.View>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>GoalQuest</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>goals.</Text>
           <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
             Your AI-powered goal companion
           </Text>
