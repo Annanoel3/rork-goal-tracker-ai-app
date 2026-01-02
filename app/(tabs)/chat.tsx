@@ -10,10 +10,12 @@ import {
   Pressable,
   ActivityIndicator,
   Animated,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Send, Sparkles } from 'lucide-react-native';
+import { Send, Sparkles, Crown } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { getTheme } from '@/constants/theme';
 import { chatWithAI, generateGamePlan, GamePlanGenerationParams } from '@/services/ai';
 import { BannerAd } from '@/components/BannerAd';
@@ -21,7 +23,8 @@ import { ChatMessage } from '@/types';
 import { useRouter } from 'expo-router';
 
 export default function ChatScreen() {
-  const { addGamePlan, addChatMessage, chatHistory, theme } = useApp();
+  const { addGamePlan, addChatMessage, chatHistory, theme, canSendMessage, getRemainingMessages } = useApp();
+  const { isPremium } = useSubscription();
   const colors = getTheme(theme);
   const router = useRouter();
 
@@ -44,6 +47,18 @@ export default function ChatScreen() {
 
   const sendMessage = async () => {
     if (!inputText.trim() || isLoading) return;
+
+    if (!canSendMessage(isPremium)) {
+      Alert.alert(
+        'Daily Message Limit Reached',
+        'You\'ve reached your daily limit of 15 messages. Upgrade to Premium for unlimited AI chat!',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Upgrade', onPress: () => router.push('/(tabs)/subscription') }
+        ]
+      );
+      return;
+    }
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -161,9 +176,17 @@ export default function ChatScreen() {
           <View style={styles.headerText}>
             <Text style={[styles.headerTitle, { color: colors.text }]}>AI Coach</Text>
             <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-              Create and adjust your goals
+              {isPremium ? 'Unlimited messages' : `${getRemainingMessages(isPremium)} messages left today`}
             </Text>
           </View>
+          {!isPremium && (
+            <Pressable
+              style={[styles.upgradeButton, { backgroundColor: colors.accent }]}
+              onPress={() => router.push('/(tabs)/subscription')}
+            >
+              <Crown color="#FFF" size={16} />
+            </Pressable>
+          )}
         </View>
 
         <ScrollView
@@ -233,7 +256,7 @@ export default function ChatScreen() {
             <Send color="#FFF" size={20} />
           </Pressable>
         </View>
-        <BannerAd />
+        {!isPremium && <BannerAd />}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -362,5 +385,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 4,
+  },
+  upgradeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
 });

@@ -54,10 +54,11 @@ export default function SubscriptionScreen() {
   };
 
   const features = [
-    { icon: Sparkles, title: 'Ad-Free Experience', description: 'Enjoy the app without any interruptions' },
-    { icon: Zap, title: 'Unlimited AI Coaching', description: 'Get unlimited personalized guidance' },
+    { icon: Sparkles, title: 'No Ads', description: 'Enjoy the app without any interruptions' },
+    { icon: Crown, title: 'Unlimited Goals', description: 'Create as many goals as you want' },
+    { icon: Zap, title: 'Unlimited AI Chat', description: 'Get unlimited personalized guidance and support' },
+    { icon: Shield, title: 'Weekly Analytics', description: 'Track completion times and progress insights' },
     { icon: Shield, title: 'Priority Support', description: 'Get help when you need it most' },
-    { icon: Crown, title: 'Exclusive Features', description: 'Access to premium-only features' },
   ];
 
   if (isPremium) {

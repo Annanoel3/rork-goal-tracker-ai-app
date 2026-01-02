@@ -7,11 +7,13 @@ import {
   Pressable,
   ActivityIndicator,
   Animated,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Plus, Sparkles, MessageCircle, Play } from 'lucide-react-native';
 import { useApp } from '@/contexts/AppContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { getTheme } from '@/constants/theme';
 import { LevelBadge } from '@/components/LevelBadge';
 import { LevelUpModal } from '@/components/LevelUpModal';
@@ -20,6 +22,7 @@ import { BannerAd } from '@/components/BannerAd';
 export default function GoalsScreen() {
   const router = useRouter();
   const { user, goals, gamePlans, gamification, hasOnboarded, isLoading, theme, getNextAction } = useApp();
+  const { isPremium } = useSubscription();
   const colors = getTheme(theme);
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
   const [levelUpLevel] = useState(0);
@@ -82,7 +85,12 @@ export default function GoalsScreen() {
         <Animated.View style={{ opacity: fadeAnim }}>
         <View style={[styles.statsCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.primary }]}>{activeGamePlans.length}</Text>
+            <View style={styles.statValueRow}>
+              <Text style={[styles.statValue, { color: colors.primary }]}>{activeGamePlans.length}</Text>
+              {!isPremium && (
+                <Text style={[styles.statLimit, { color: colors.textTertiary }]}>/3</Text>
+              )}
+            </View>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Active Goals</Text>
           </View>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -107,7 +115,20 @@ export default function GoalsScreen() {
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Your Goals</Text>
             <Pressable
               style={[styles.addButton, { backgroundColor: colors.primary }]}
-              onPress={() => router.push('/(tabs)/chat')}
+              onPress={() => {
+                if (!isPremium && activeGamePlans.length >= 3) {
+                  Alert.alert(
+                    'Goal Limit Reached',
+                    'Free users can have up to 3 active goals. Upgrade to Premium for unlimited goals!',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Upgrade', onPress: () => router.push('/(tabs)/subscription') }
+                    ]
+                  );
+                  return;
+                }
+                router.push('/(tabs)/chat');
+              }}
             >
               <Plus color="#FFF" size={20} />
               <Text style={styles.addButtonText}>Add Goal</Text>
@@ -123,7 +144,20 @@ export default function GoalsScreen() {
               </Text>
               <Pressable
                 style={[styles.emptyButton, { backgroundColor: colors.primary }]}
-                onPress={() => router.push('/(tabs)/chat')}
+                onPress={() => {
+                  if (!isPremium && activeGamePlans.length >= 3) {
+                    Alert.alert(
+                      'Goal Limit Reached',
+                      'Free users can have up to 3 active goals. Upgrade to Premium for unlimited goals!',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Upgrade', onPress: () => router.push('/(tabs)/subscription') }
+                      ]
+                    );
+                    return;
+                  }
+                  router.push('/(tabs)/chat');
+                }}
               >
                 <Text style={styles.emptyButtonText}>Start Chat</Text>
               </Pressable>
@@ -210,7 +244,7 @@ export default function GoalsScreen() {
         </View>
       </ScrollView>
 
-      <BannerAd />
+      {!isPremium && <BannerAd />}
 
       <LevelUpModal
         visible={showLevelUpModal}
@@ -266,10 +300,19 @@ const styles = StyleSheet.create({
     alignItems: 'center' as const,
     gap: 4,
   },
+  statValueRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'baseline' as const,
+    gap: 2,
+  },
   statValue: {
     fontSize: 32,
     fontWeight: '800' as const,
     letterSpacing: -0.5,
+  },
+  statLimit: {
+    fontSize: 18,
+    fontWeight: '600' as const,
   },
   statLabel: {
     fontSize: 13,

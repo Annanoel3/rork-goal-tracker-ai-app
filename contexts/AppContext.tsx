@@ -14,6 +14,8 @@ const STORAGE_KEYS = {
   THEME: '@theme',
   NOTIFICATIONS: '@notifications',
   HAS_ONBOARDED: '@has_onboarded',
+  DAILY_CHAT_COUNT: '@daily_chat_count',
+  LAST_CHAT_RESET_DATE: '@last_chat_reset_date',
 };
 
 export const [AppProvider, useApp] = createContextHook(() => {
@@ -38,6 +40,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
   });
   const [hasOnboarded, setHasOnboarded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [dailyChatCount, setDailyChatCount] = useState(0);
 
   const loadData = useCallback(async () => {
     try {
@@ -54,6 +57,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
         storedTheme,
         storedNotifications,
         storedOnboarded,
+        storedDailyChatCount,
+        storedLastChatResetDate,
       ] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.USER),
         AsyncStorage.getItem(STORAGE_KEYS.GOALS),
@@ -63,6 +68,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
         AsyncStorage.getItem(STORAGE_KEYS.THEME),
         AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS),
         AsyncStorage.getItem(STORAGE_KEYS.HAS_ONBOARDED),
+        AsyncStorage.getItem(STORAGE_KEYS.DAILY_CHAT_COUNT),
+        AsyncStorage.getItem(STORAGE_KEYS.LAST_CHAT_RESET_DATE),
       ]);
 
       if (storedUser) {
@@ -76,6 +83,20 @@ export const [AppProvider, useApp] = createContextHook(() => {
       if (storedTheme) setTheme(JSON.parse(storedTheme));
       if (storedNotifications) setNotifications(JSON.parse(storedNotifications));
       if (storedOnboarded) setHasOnboarded(JSON.parse(storedOnboarded));
+      
+      const today = new Date().toDateString();
+      if (storedLastChatResetDate) {
+        const lastResetDate = JSON.parse(storedLastChatResetDate);
+        if (lastResetDate !== today) {
+          setDailyChatCount(0);
+          await AsyncStorage.setItem(STORAGE_KEYS.DAILY_CHAT_COUNT, JSON.stringify(0));
+          await AsyncStorage.setItem(STORAGE_KEYS.LAST_CHAT_RESET_DATE, JSON.stringify(today));
+        } else if (storedDailyChatCount) {
+          setDailyChatCount(JSON.parse(storedDailyChatCount));
+        }
+      } else {
+        await AsyncStorage.setItem(STORAGE_KEYS.LAST_CHAT_RESET_DATE, JSON.stringify(today));
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -181,6 +202,22 @@ export const [AppProvider, useApp] = createContextHook(() => {
     const newHistory = [...chatHistory, message];
     setChatHistory(newHistory);
     await AsyncStorage.setItem(STORAGE_KEYS.CHAT_HISTORY, JSON.stringify(newHistory));
+    
+    if (message.role === 'user') {
+      const newCount = dailyChatCount + 1;
+      setDailyChatCount(newCount);
+      await AsyncStorage.setItem(STORAGE_KEYS.DAILY_CHAT_COUNT, JSON.stringify(newCount));
+    }
+  };
+
+  const canSendMessage = (isPremium: boolean): boolean => {
+    if (isPremium) return true;
+    return dailyChatCount < 15;
+  };
+
+  const getRemainingMessages = (isPremium: boolean): number => {
+    if (isPremium) return -1;
+    return Math.max(0, 15 - dailyChatCount);
   };
 
   const clearChatHistory = async () => {
@@ -661,6 +698,9 @@ export const [AppProvider, useApp] = createContextHook(() => {
     notifications,
     hasOnboarded,
     isLoading,
+    dailyChatCount,
+    canSendMessage,
+    getRemainingMessages,
     createUser,
     updateUser,
     addGoal,
