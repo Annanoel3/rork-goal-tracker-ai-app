@@ -101,13 +101,9 @@ export default function ChatScreen() {
         console.log('🎯 Goal creation triggered');
         setIsCreatingGoal(true);
         
-        const loadingMessage: ChatMessage = {
-          id: (Date.now() + 2).toString(),
-          role: 'assistant',
-          content: '✨ Creating your goal...',
-          timestamp: new Date().toISOString(),
-        };
-        setMessages([...updatedMessages, loadingMessage]);
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 100);
 
         setTimeout(async () => {
           try {
@@ -270,9 +266,14 @@ export default function ChatScreen() {
               </Animated.View>
             );
           })}
-          {isLoading && !isCreatingGoal && (
+          {(isLoading || isCreatingGoal) && (
             <View style={[styles.messageBubble, styles.assistantBubble, { backgroundColor: colors.surface }]}>
-              <ActivityIndicator color={colors.primary} />
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color={colors.primary} size="small" />
+                {isCreatingGoal && (
+                  <Text style={[styles.loadingText, { color: colors.text }]}>Creating your goal...</Text>
+                )}
+              </View>
             </View>
           )}
         </ScrollView>
@@ -437,5 +438,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 3,
+  },
+  loadingContainer: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
   },
 });

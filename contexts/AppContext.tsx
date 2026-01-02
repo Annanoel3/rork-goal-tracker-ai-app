@@ -247,33 +247,44 @@ export const [AppProvider, useApp] = createContextHook(() => {
   };
 
   const addGamePlan = useCallback(async (gamePlan: GamePlan) => {
-    console.log('Adding game plan:', gamePlan.goalTitle);
-    console.log('Game plan data:', JSON.stringify(gamePlan, null, 2));
+    console.log('🎯 Adding game plan:', gamePlan.goalTitle);
+    console.log('📋 Game plan structure:', {
+      goalId: gamePlan.goalId,
+      milestones: gamePlan.milestones.length,
+      status: gamePlan.status
+    });
     
     try {
-      let newGamePlans: GamePlan[];
-      setGamePlans(prev => {
-        console.log('Current gamePlans count:', prev.length);
-        newGamePlans = [...prev, gamePlan];
-        console.log('New gamePlans count:', newGamePlans.length);
-        return newGamePlans;
-      });
+      const currentPlans = await AsyncStorage.getItem(STORAGE_KEYS.GAME_PLANS);
+      const existingPlans = currentPlans ? JSON.parse(currentPlans) : [];
+      console.log('📦 Current plans in storage:', existingPlans.length);
       
-      await new Promise(resolve => setTimeout(resolve, 100));
+      const newGamePlans = [...existingPlans, gamePlan];
+      console.log('📦 New plans count:', newGamePlans.length);
       
-      await AsyncStorage.setItem(STORAGE_KEYS.GAME_PLANS, JSON.stringify(newGamePlans!));
-      console.log('Game plans saved to AsyncStorage');
+      await AsyncStorage.setItem(STORAGE_KEYS.GAME_PLANS, JSON.stringify(newGamePlans));
+      console.log('✅ Game plans saved to AsyncStorage');
+      
+      setGamePlans(newGamePlans);
+      console.log('✅ State updated');
       
       const verification = await AsyncStorage.getItem(STORAGE_KEYS.GAME_PLANS);
       const verifiedPlans = verification ? JSON.parse(verification) : [];
-      console.log('Verification - stored game plans:', verifiedPlans.length);
-      console.log('Verification - goal titles:', verifiedPlans.map((gp: GamePlan) => gp.goalTitle));
+      console.log('🔍 Verification - stored game plans:', verifiedPlans.length);
+      console.log('🔍 Verification - goal titles:', verifiedPlans.map((gp: GamePlan) => gp.goalTitle));
+      
+      if (verifiedPlans.length !== newGamePlans.length) {
+        console.error('⚠️ Save verification failed! Expected:', newGamePlans.length, 'Got:', verifiedPlans.length);
+        return false;
+      }
       
       await addPoints(POINTS_CONFIG.CHAT_INTERACTION);
+      console.log('✅ Points added');
       
       return true;
     } catch (error) {
-      console.error('Error adding game plan:', error);
+      console.error('❌ Error adding game plan:', error);
+      console.error('❌ Error stack:', (error as Error).stack);
       return false;
     }
   }, [addPoints]);
