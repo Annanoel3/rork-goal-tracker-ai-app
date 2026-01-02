@@ -42,6 +42,7 @@ export default function ChatScreen() {
   );
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isCreatingGoal, setIsCreatingGoal] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const messageAnims = useRef<{ [key: string]: Animated.Value }>({}).current;
 
@@ -97,6 +98,17 @@ export default function ChatScreen() {
         aiResponse.toLowerCase().includes('check it out on your goals page');
 
       if (shouldCreateGoal) {
+        setIsCreatingGoal(true);
+        
+        const loadingMessage: ChatMessage = {
+          id: (Date.now() + 2).toString(),
+          role: 'assistant',
+          content: 'Creating your goal...',
+          timestamp: new Date().toISOString(),
+        };
+        setMessages([...updatedMessages, loadingMessage]);
+        await addChatMessage(loadingMessage);
+
         setTimeout(async () => {
           try {
             console.log('Creating game plan automatically...');
@@ -113,22 +125,30 @@ export default function ChatScreen() {
             };
 
             const gamePlan = await generateGamePlan(gamePlanParams);
-            await addGamePlan(gamePlan);
+            console.log('Game plan generated, adding to storage...');
+            
+            const saveSuccess = await addGamePlan(gamePlan);
+            console.log('Game plan added to storage successfully:', saveSuccess);
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            setIsCreatingGoal(false);
 
-            console.log('Game plan created successfully, navigating to goals page in 6 seconds...');
+            console.log('Navigating to goals page in 6 seconds...');
             setTimeout(() => {
               console.log('Navigating to goals page now');
               router.push('/(tabs)');
             }, 6000);
           } catch (error) {
             console.error('Error creating game plan:', error);
+            setIsCreatingGoal(false);
             const errorMessage: ChatMessage = {
               id: (Date.now() + 3).toString(),
               role: 'assistant',
               content: 'I had trouble creating the game plan. Could you tell me a bit more about what you want to achieve?',
               timestamp: new Date().toISOString(),
             };
-            setMessages([...updatedMessages, errorMessage]);
+            setMessages(prev => [...prev.filter(m => m.content !== 'Creating your goal...'), errorMessage]);
             await addChatMessage(errorMessage);
           }
         }, 500);
@@ -230,7 +250,7 @@ export default function ChatScreen() {
               </Animated.View>
             );
           })}
-          {isLoading && (
+          {(isLoading || isCreatingGoal) && (
             <View style={[styles.messageBubble, styles.assistantBubble, { backgroundColor: colors.surface }]}>
               <ActivityIndicator color={colors.primary} />
             </View>

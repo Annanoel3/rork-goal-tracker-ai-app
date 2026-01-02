@@ -242,10 +242,19 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
   const addGamePlan = async (gamePlan: GamePlan) => {
     console.log('Adding game plan:', gamePlan.goalTitle);
+    console.log('Current gamePlans count:', gamePlans.length);
     const newGamePlans = [...gamePlans, gamePlan];
+    console.log('New gamePlans count:', newGamePlans.length);
     setGamePlans(newGamePlans);
     await AsyncStorage.setItem(STORAGE_KEYS.GAME_PLANS, JSON.stringify(newGamePlans));
+    console.log('Game plans saved to AsyncStorage');
+    
+    const verification = await AsyncStorage.getItem(STORAGE_KEYS.GAME_PLANS);
+    console.log('Verification - stored game plans:', verification ? JSON.parse(verification).length : 0);
+    
     await addPoints(POINTS_CONFIG.CHAT_INTERACTION);
+    
+    return true;
   };
 
   const updateGamePlan = useCallback(async (goalId: string, updates: Partial<GamePlan>) => {
