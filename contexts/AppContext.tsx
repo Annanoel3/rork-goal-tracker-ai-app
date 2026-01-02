@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from 'react';
 import { Goal, User, GamificationData, ChatMessage, ThemeMode, NotificationSettings } from '@/types';
 import { calculateLevel, getPointsToNextLevel, POINTS_CONFIG } from '@/constants/gamification';
 import { loadOpenAIKey } from '@/services/ai';
-import { useNotifications } from '@/contexts/NotificationContext';
 
 const STORAGE_KEYS = {
   USER: '@user',
@@ -17,7 +16,6 @@ const STORAGE_KEYS = {
 };
 
 export const [AppProvider, useApp] = createContextHook(() => {
-  const { setUserIdForNotifications } = useNotifications();
   const [user, setUser] = useState<User | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [gamification, setGamification] = useState<GamificationData>({
@@ -66,9 +64,6 @@ export const [AppProvider, useApp] = createContextHook(() => {
       if (storedUser) {
         const parsedUser = JSON.parse(storedUser);
         setUser(parsedUser);
-        if (parsedUser.id) {
-          await setUserIdForNotifications(parsedUser.id);
-        }
       }
       if (storedGoals) setGoals(JSON.parse(storedGoals));
       if (storedGamification) setGamification(JSON.parse(storedGamification));
@@ -81,7 +76,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
     } finally {
       setIsLoading(false);
     }
-  }, [setUserIdForNotifications]);
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -98,7 +93,6 @@ export const [AppProvider, useApp] = createContextHook(() => {
     };
     setUser(newUser);
     await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(newUser));
-    await setUserIdForNotifications(newUser.id);
     await addPoints(POINTS_CONFIG.PROFILE_SETUP);
   };
 
