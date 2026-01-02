@@ -246,7 +246,6 @@ export default function ChatScreen() {
             onChangeText={setInputText}
             onSubmitEditing={sendMessage}
             multiline
-            maxLength={500}
           />
           <Pressable
             style={[styles.sendButton, { backgroundColor: colors.primary, opacity: inputText.trim() ? 1 : 0.5 }]}
