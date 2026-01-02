@@ -98,24 +98,26 @@ export default function ChatScreen() {
         aiResponse.toLowerCase().includes('check it out on your goals page');
 
       if (shouldCreateGoal) {
+        console.log('🎯 Goal creation triggered');
         setIsCreatingGoal(true);
         
         const loadingMessage: ChatMessage = {
           id: (Date.now() + 2).toString(),
           role: 'assistant',
-          content: 'Creating your goal...',
+          content: '✨ Creating your goal...',
           timestamp: new Date().toISOString(),
         };
         setMessages([...updatedMessages, loadingMessage]);
-        await addChatMessage(loadingMessage);
 
         setTimeout(async () => {
           try {
-            console.log('Creating game plan automatically...');
+            console.log('🔧 Starting game plan generation...');
 
             const goalTitle = extractGoalTitle(conversationHistory);
             const goalDescription = extractGoalDescription(conversationHistory);
             const category = extractCategory(conversationHistory);
+
+            console.log('📝 Extracted goal info:', { goalTitle, goalDescription, category });
 
             const gamePlanParams: GamePlanGenerationParams = {
               goalTitle,
@@ -124,34 +126,52 @@ export default function ChatScreen() {
               conversationHistory,
             };
 
+            console.log('🤖 Calling OpenAI to generate game plan...');
             const gamePlan = await generateGamePlan(gamePlanParams);
-            console.log('Game plan generated, adding to storage...');
+            console.log('✅ Game plan generated:', gamePlan.goalTitle);
+            console.log('📊 Milestones count:', gamePlan.milestones.length);
             
+            console.log('💾 Saving game plan to storage...');
             const saveSuccess = await addGamePlan(gamePlan);
-            console.log('Game plan added to storage successfully:', saveSuccess);
+            console.log('💾 Save result:', saveSuccess);
+            
+            if (!saveSuccess) {
+              throw new Error('Failed to save game plan');
+            }
             
             await new Promise(resolve => setTimeout(resolve, 500));
             
+            console.log('🎉 Goal created successfully!');
             setIsCreatingGoal(false);
+            
+            const successMessage: ChatMessage = {
+              id: (Date.now() + 3).toString(),
+              role: 'assistant',
+              content: '🎉 Goal created! Taking you to your goals page...',
+              timestamp: new Date().toISOString(),
+            };
+            setMessages(prev => [...prev.filter(m => m.content !== '✨ Creating your goal...'), successMessage]);
+            await addChatMessage(successMessage);
 
-            console.log('Navigating to goals page in 6 seconds...');
+            console.log('🚀 Navigating to goals page in 2 seconds...');
             setTimeout(() => {
-              console.log('Navigating to goals page now');
+              console.log('🚀 Navigating now');
               router.push('/(tabs)');
-            }, 6000);
-          } catch (error) {
-            console.error('Error creating game plan:', error);
+            }, 2000);
+          } catch (error: any) {
+            console.error('❌ Error creating game plan:', error);
+            console.error('❌ Error details:', error.message, error.stack);
             setIsCreatingGoal(false);
             const errorMessage: ChatMessage = {
               id: (Date.now() + 3).toString(),
               role: 'assistant',
-              content: 'I had trouble creating the game plan. Could you tell me a bit more about what you want to achieve?',
+              content: `I had trouble creating your goal. ${error.message || 'Please try again or tell me more about what you want to achieve.'}`,
               timestamp: new Date().toISOString(),
             };
-            setMessages(prev => [...prev.filter(m => m.content !== 'Creating your goal...'), errorMessage]);
+            setMessages(prev => [...prev.filter(m => m.content !== '✨ Creating your goal...'), errorMessage]);
             await addChatMessage(errorMessage);
           }
-        }, 500);
+        }, 300);
       }
     } catch (error: any) {
       console.error('Chat error:', error);
@@ -250,7 +270,7 @@ export default function ChatScreen() {
               </Animated.View>
             );
           })}
-          {(isLoading || isCreatingGoal) && (
+          {isLoading && !isCreatingGoal && (
             <View style={[styles.messageBubble, styles.assistantBubble, { backgroundColor: colors.surface }]}>
               <ActivityIndicator color={colors.primary} />
             </View>
