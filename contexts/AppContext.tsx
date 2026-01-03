@@ -45,8 +45,12 @@ export const [AppProvider, useApp] = createContextHook(() => {
   const loadData = useCallback(async () => {
     try {
       console.log('AppContext: Loading data...');
-      const openAILoaded = await loadOpenAIKey();
-      console.log('AppContext: OpenAI loaded:', openAILoaded);
+      
+      loadOpenAIKey().then(loaded => {
+        console.log('AppContext: OpenAI loaded:', loaded);
+      }).catch(err => {
+        console.error('AppContext: OpenAI load failed:', err);
+      });
       
       const [
         storedUser,
