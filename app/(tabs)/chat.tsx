@@ -55,7 +55,7 @@ export default function ChatScreen() {
         'You\'ve reached your daily limit of 15 messages. Upgrade to Premium for unlimited AI chat!',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Upgrade', onPress: () => router.push('/(tabs)/subscription') }
+          { text: 'Upgrade', onPress: () => router.push('/subscription') }
         ]
       );
       return;
@@ -146,7 +146,7 @@ export default function ChatScreen() {
           console.log('🚀 Navigating to goals page...');
           setTimeout(() => {
             console.log('🚀 Navigating now');
-            router.push('/(tabs)');
+            router.push('/');
           }, 1500);
         } catch (error: any) {
           console.error('❌ Error creating game plan:', error);
@@ -225,7 +225,7 @@ export default function ChatScreen() {
           {!isPremium && (
             <Pressable
               style={[styles.upgradeButton, { backgroundColor: colors.accent }]}
-              onPress={() => router.push('/(tabs)/subscription')}
+              onPress={() => router.push('/subscription')}
             >
               <Crown color="#FFF" size={16} />
             </Pressable>

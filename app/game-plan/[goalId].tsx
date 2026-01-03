@@ -136,7 +136,7 @@ export default function GamePlanScreen() {
                 </Pressable>
                 <Pressable
                   style={[styles.dormantButton, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}
-                  onPress={() => router.push('/(tabs)/chat')}
+                  onPress={() => router.push('/chat')}
                 >
                   <Text style={[styles.dormantButtonText, { color: colors.text }]}>Make easier</Text>
                 </Pressable>
@@ -321,7 +321,7 @@ export default function GamePlanScreen() {
                                           </Text>
                                           <Pressable
                                             style={[styles.helpChatButton, { backgroundColor: colors.accent }]}
-                                            onPress={() => router.push('/(tabs)/chat')}
+                                            onPress={() => router.push('/chat')}
                                           >
                                             <Text style={styles.helpChatButtonText}>Chat</Text>
                                           </Pressable>
@@ -372,7 +372,7 @@ export default function GamePlanScreen() {
                                       </View>
                                       <Pressable
                                         style={[styles.fallbackButton, { backgroundColor: colors.accent }]}
-                                        onPress={() => router.push('/(tabs)/chat')}
+                                        onPress={() => router.push('/chat')}
                                       >
                                         <Text style={styles.fallbackButtonText}>Get help</Text>
                                       </Pressable>
