@@ -10,9 +10,10 @@ const getBaseUrl = () => {
   const url = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
 
   if (!url) {
-    throw new Error(
-      "Rork did not set EXPO_PUBLIC_RORK_API_BASE_URL, please use support",
+    console.warn(
+      "Rork did not set EXPO_PUBLIC_RORK_API_BASE_URL. API calls will fail.",
     );
+    return "http://localhost:3000"; // Fallback to avoid crash on launch
   }
 
   return url;
