@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,9 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Plus, Sparkles, MessageCircle, Play } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '@/contexts/AppContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { getTheme } from '@/constants/theme';
@@ -26,8 +27,31 @@ export default function GoalsScreen() {
   const colors = getTheme(theme);
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
   const [levelUpLevel] = useState(0);
+  const [localGamePlans, setLocalGamePlans] = useState(gamePlans);
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const slideAnim = React.useRef(new Animated.Value(30)).current;
+
+  useFocusEffect(
+    useCallback(() => {
+      const refreshGamePlans = async () => {
+        try {
+          const storedPlans = await AsyncStorage.getItem('@game_plans');
+          if (storedPlans) {
+            const plans = JSON.parse(storedPlans);
+            console.log('GoalsScreen: Refreshed game plans from storage:', plans.length);
+            setLocalGamePlans(plans);
+          }
+        } catch (error) {
+          console.error('Error refreshing game plans:', error);
+        }
+      };
+      refreshGamePlans();
+    }, [])
+  );
+
+  useEffect(() => {
+    setLocalGamePlans(gamePlans);
+  }, [gamePlans]);
 
   useEffect(() => {
     if (!isLoading && !hasOnboarded) {
@@ -61,7 +85,7 @@ export default function GoalsScreen() {
     );
   }
 
-  const activeGamePlans = gamePlans.filter(gp => gp.status === 'active' || gp.status === 'paused');
+  const activeGamePlans = localGamePlans.filter(gp => gp.status === 'active' || gp.status === 'paused');
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>

@@ -81,6 +81,89 @@ export default function ChatScreen() {
 
       const aiResponse = await chatWithAI(conversationHistory);
 
+      const lowerResponse = aiResponse.toLowerCase();
+      const shouldCreateGoal = 
+        lowerResponse.includes('check it out on your goals page') ||
+        lowerResponse.includes('check out your goals page') ||
+        lowerResponse.includes('go to your goals page') ||
+        lowerResponse.includes('head to your goals page') ||
+        lowerResponse.includes('i\'ve turned this into') ||
+        lowerResponse.includes('i\'ve created') ||
+        (lowerResponse.includes('goals page') && (lowerResponse.includes('check') || lowerResponse.includes('created') || lowerResponse.includes('set up')));
+
+      if (shouldCreateGoal) {
+        console.log('🎯 Goal creation triggered - showing loading first');
+        setIsLoading(false);
+        setIsCreatingGoal(true);
+        
+        await addChatMessage(userMessage);
+        
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+
+        try {
+          console.log('🔧 Starting game plan generation...');
+
+          const goalTitle = extractGoalTitle(conversationHistory);
+          const goalDescription = extractGoalDescription(conversationHistory);
+          const category = extractCategory(conversationHistory);
+
+          console.log('📝 Extracted goal info:', { goalTitle, goalDescription, category });
+
+          const gamePlanParams: GamePlanGenerationParams = {
+            goalTitle,
+            goalDescription,
+            category,
+            conversationHistory,
+          };
+
+          console.log('🤖 Calling OpenAI to generate game plan...');
+          const gamePlan = await generateGamePlan(gamePlanParams);
+          console.log('✅ Game plan generated:', gamePlan.goalTitle);
+          console.log('📊 Milestones count:', gamePlan.milestones.length);
+          
+          console.log('💾 Saving game plan to storage...');
+          const saveSuccess = await addGamePlan(gamePlan);
+          console.log('💾 Save result:', saveSuccess);
+          
+          if (!saveSuccess) {
+            throw new Error('Failed to save game plan');
+          }
+          
+          console.log('🎉 Goal created successfully!');
+          setIsCreatingGoal(false);
+          
+          const successMessage: ChatMessage = {
+            id: (Date.now() + 3).toString(),
+            role: 'assistant',
+            content: '🎉 Your goal is ready! Taking you there now...',
+            timestamp: new Date().toISOString(),
+          };
+          setMessages(prev => [...prev, successMessage]);
+          await addChatMessage(successMessage);
+
+          console.log('🚀 Navigating to goals page...');
+          setTimeout(() => {
+            console.log('🚀 Navigating now');
+            router.push('/(tabs)');
+          }, 1500);
+        } catch (error: any) {
+          console.error('❌ Error creating game plan:', error);
+          console.error('❌ Error details:', error.message, error.stack);
+          setIsCreatingGoal(false);
+          const errorMessage: ChatMessage = {
+            id: (Date.now() + 3).toString(),
+            role: 'assistant',
+            content: `I had trouble creating your goal. ${error.message || 'Please try again or tell me more about what you want to achieve.'}`,
+            timestamp: new Date().toISOString(),
+          };
+          setMessages(prev => [...prev, errorMessage]);
+          await addChatMessage(errorMessage);
+        }
+        return;
+      }
+
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -93,86 +176,6 @@ export default function ChatScreen() {
 
       await addChatMessage(userMessage);
       await addChatMessage(assistantMessage);
-
-      const shouldCreateGoal = 
-        aiResponse.toLowerCase().includes('check it out on your goals page');
-
-      if (shouldCreateGoal) {
-        console.log('🎯 Goal creation triggered');
-        setIsCreatingGoal(true);
-        
-        const loadingMessage: ChatMessage = {
-          id: (Date.now() + 2).toString(),
-          role: 'assistant',
-          content: '✨ Creating your goal...',
-          timestamp: new Date().toISOString(),
-        };
-        setMessages([...updatedMessages, loadingMessage]);
-
-        setTimeout(async () => {
-          try {
-            console.log('🔧 Starting game plan generation...');
-
-            const goalTitle = extractGoalTitle(conversationHistory);
-            const goalDescription = extractGoalDescription(conversationHistory);
-            const category = extractCategory(conversationHistory);
-
-            console.log('📝 Extracted goal info:', { goalTitle, goalDescription, category });
-
-            const gamePlanParams: GamePlanGenerationParams = {
-              goalTitle,
-              goalDescription,
-              category,
-              conversationHistory,
-            };
-
-            console.log('🤖 Calling OpenAI to generate game plan...');
-            const gamePlan = await generateGamePlan(gamePlanParams);
-            console.log('✅ Game plan generated:', gamePlan.goalTitle);
-            console.log('📊 Milestones count:', gamePlan.milestones.length);
-            
-            console.log('💾 Saving game plan to storage...');
-            const saveSuccess = await addGamePlan(gamePlan);
-            console.log('💾 Save result:', saveSuccess);
-            
-            if (!saveSuccess) {
-              throw new Error('Failed to save game plan');
-            }
-            
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            console.log('🎉 Goal created successfully!');
-            setIsCreatingGoal(false);
-            
-            const successMessage: ChatMessage = {
-              id: (Date.now() + 3).toString(),
-              role: 'assistant',
-              content: '🎉 Goal created! Taking you to your goals page...',
-              timestamp: new Date().toISOString(),
-            };
-            setMessages(prev => [...prev.filter(m => m.content !== '✨ Creating your goal...'), successMessage]);
-            await addChatMessage(successMessage);
-
-            console.log('🚀 Navigating to goals page in 2 seconds...');
-            setTimeout(() => {
-              console.log('🚀 Navigating now');
-              router.push('/(tabs)');
-            }, 2000);
-          } catch (error: any) {
-            console.error('❌ Error creating game plan:', error);
-            console.error('❌ Error details:', error.message, error.stack);
-            setIsCreatingGoal(false);
-            const errorMessage: ChatMessage = {
-              id: (Date.now() + 3).toString(),
-              role: 'assistant',
-              content: `I had trouble creating your goal. ${error.message || 'Please try again or tell me more about what you want to achieve.'}`,
-              timestamp: new Date().toISOString(),
-            };
-            setMessages(prev => [...prev.filter(m => m.content !== '✨ Creating your goal...'), errorMessage]);
-            await addChatMessage(errorMessage);
-          }
-        }, 300);
-      }
     } catch (error: any) {
       console.error('Chat error:', error);
       const errorMessage: ChatMessage = {
@@ -270,9 +273,14 @@ export default function ChatScreen() {
               </Animated.View>
             );
           })}
-          {isLoading && !isCreatingGoal && (
+          {(isLoading || isCreatingGoal) && (
             <View style={[styles.messageBubble, styles.assistantBubble, { backgroundColor: colors.surface }]}>
-              <ActivityIndicator color={colors.primary} />
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color={colors.primary} size="small" />
+                {isCreatingGoal && (
+                  <Text style={[styles.loadingText, { color: colors.text }]}>Creating your goal...</Text>
+                )}
+              </View>
             </View>
           )}
         </ScrollView>
@@ -437,5 +445,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 3,
+  },
+  loadingContainer: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
   },
 });
