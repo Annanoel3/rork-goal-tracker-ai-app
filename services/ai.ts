@@ -37,7 +37,9 @@ export const initializeOpenAI = async (apiKey: string) => {
     apiKey: trimmed,
     dangerouslyAllowBrowser: true,
   });
+  initPromise = null;
   await AsyncStorage.setItem(API_KEY_STORAGE, trimmed);
+  console.log('OpenAI client initialized from user-provided key');
 };
 
 export const loadOpenAIKey = async () => {
@@ -46,7 +48,7 @@ export const loadOpenAIKey = async () => {
   const storedTrimmed = typeof storedApiKey === 'string' ? storedApiKey.trim() : '';
   const apiKey = envApiKey ?? (storedTrimmed.length > 0 ? storedTrimmed : null);
 
-  console.log('Loading OpenAI key... env key exists:', !!envApiKey, 'stored key exists:', !!storedApiKey);
+  console.log('Loading OpenAI key... env key exists:', !!envApiKey, 'stored key exists:', !!storedApiKey, 'has client:', openaiClient !== null);
 
   if (apiKey) {
     try {
@@ -54,7 +56,7 @@ export const loadOpenAIKey = async () => {
         apiKey,
         dangerouslyAllowBrowser: true,
       });
-      console.log('OpenAI client initialized successfully');
+      console.log('OpenAI client initialized successfully (loadOpenAIKey)');
       if (envApiKey && storedTrimmed.length === 0) {
         await AsyncStorage.setItem(API_KEY_STORAGE, envApiKey);
         console.log('Saved env API key to storage');
@@ -95,6 +97,9 @@ export const getOpenAIStatus = () => ({
   hasClient: openaiClient !== null,
   isInitialized: isOpenAIInitialized(),
 });
+
+const preinitOk = tryInitFromEnvSync();
+console.log('OpenAI pre-init from env (module load):', preinitOk);
 
 const SYSTEM_PROMPT = `You are a supportive personal assistant helping users achieve their goals through thoughtful, adaptive planning. You guide without overwhelming.
 
