@@ -1,4 +1,4 @@
-import { createTRPCClient, httpLink } from "@trpc/client";
+import { httpBatchLink } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import superjson from "superjson";
 
@@ -13,15 +13,15 @@ const getBaseUrl = () => {
     console.warn(
       "Rork did not set EXPO_PUBLIC_RORK_API_BASE_URL. API calls will fail.",
     );
-    return "http://localhost:3000"; // Fallback to avoid crash on launch
+    return "http://localhost:3000";
   }
 
   return url;
 };
 
-export const trpcClient = createTRPCClient<AppRouter>({
+export const trpcClient = trpc.createClient({
   links: [
-    httpLink({
+    httpBatchLink({
       url: `${getBaseUrl()}/api/trpc`,
       transformer: superjson,
     }),
