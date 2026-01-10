@@ -1,6 +1,6 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Goal, User, GamificationData, ChatMessage, ThemeMode, NotificationSettings, GamePlan, Step, StepStatus, MilestoneStatus, SubtaskStatus, ReminderConfig, CompletionType, ResourcePin } from '@/types';
 import { calculateLevel, getPointsToNextLevel, POINTS_CONFIG } from '@/constants/gamification';
 import { loadOpenAIKey } from '@/services/ai';
@@ -710,28 +710,49 @@ export const [AppProvider, useApp] = createContextHook(() => {
     });
   };
 
-  const detectDormantGoals = useCallback(() => {
+  const detectDormantGoals = useCallback(async () => {
+    if (isLoading) return;
+    
     const now = new Date();
     const DORMANT_THRESHOLD_DAYS = 7;
+    let hasUpdates = false;
+    const updates: { goalId: string; dormantSince: string }[] = [];
 
-    gamePlans.forEach(async (gp) => {
-      if (gp.status !== 'active' || gp.dormantSince) return;
+    for (const gp of gamePlans) {
+      if (gp.status !== 'active' || gp.dormantSince) continue;
 
       const lastInteraction = gp.lastInteractionDate ? new Date(gp.lastInteractionDate) : new Date(gp.createdAt);
       const daysSinceInteraction = Math.floor((now.getTime() - lastInteraction.getTime()) / (1000 * 60 * 60 * 24));
 
       if (daysSinceInteraction >= DORMANT_THRESHOLD_DAYS) {
         console.log('Goal became dormant:', gp.goalTitle);
-        await updateGamePlan(gp.goalId, {
-          dormantSince: now.toISOString()
-        });
+        updates.push({ goalId: gp.goalId, dormantSince: now.toISOString() });
+        hasUpdates = true;
       }
-    });
-  }, [gamePlans, updateGamePlan]);
+    }
 
+    if (hasUpdates) {
+      const newGamePlans = gamePlans.map(gp => {
+        const update = updates.find(u => u.goalId === gp.goalId);
+        if (update) {
+          return { ...gp, dormantSince: update.dormantSince };
+        }
+        return gp;
+      });
+      setGamePlans(newGamePlans);
+      await AsyncStorage.setItem(STORAGE_KEYS.GAME_PLANS, JSON.stringify(newGamePlans));
+    }
+  }, [gamePlans, isLoading]);
+
+  const dormantCheckRef = useRef(false);
   useEffect(() => {
-    detectDormantGoals();
-  }, [detectDormantGoals]);
+    if (dormantCheckRef.current || isLoading) return;
+    dormantCheckRef.current = true;
+    const timer = setTimeout(() => {
+      detectDormantGoals();
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [isLoading, detectDormantGoals]);
 
   return {
     user,

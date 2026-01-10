@@ -55,7 +55,7 @@ export default function ChatScreen() {
         'You\'ve reached your daily limit of 15 messages. Upgrade to Premium for unlimited AI chat!',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Upgrade', onPress: () => router.push('/(tabs)/subscription') }
+          { text: 'Upgrade', onPress: () => router.push('/subscription') }
         ]
       );
       return;
@@ -92,24 +92,45 @@ export default function ChatScreen() {
         (lowerResponse.includes('goals page') && (lowerResponse.includes('check') || lowerResponse.includes('created') || lowerResponse.includes('set up')));
 
       if (shouldCreateGoal) {
-        console.log('🎯 Goal creation triggered - showing loading first');
+        console.log('🎯 Goal creation triggered');
+        
+        const assistantMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: aiResponse,
+          timestamp: new Date().toISOString(),
+        };
+
+        const messagesWithResponse = [...newMessages, assistantMessage];
+        setMessages(messagesWithResponse);
         setIsLoading(false);
-        setIsCreatingGoal(true);
         
         await addChatMessage(userMessage);
+        await addChatMessage(assistantMessage);
         
         setTimeout(() => {
           scrollViewRef.current?.scrollToEnd({ animated: true });
         }, 100);
+        
+        setIsCreatingGoal(true);
+        
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 200);
 
         try {
           console.log('🔧 Starting game plan generation...');
+          console.log('🔧 Conversation history length:', conversationHistory.length);
 
           const goalTitle = extractGoalTitle(conversationHistory);
           const goalDescription = extractGoalDescription(conversationHistory);
           const category = extractCategory(conversationHistory);
 
           console.log('📝 Extracted goal info:', { goalTitle, goalDescription, category });
+
+          if (!goalTitle || goalTitle === 'My Goal') {
+            throw new Error('Could not extract goal title from conversation');
+          }
 
           const gamePlanParams: GamePlanGenerationParams = {
             goalTitle,
@@ -122,13 +143,18 @@ export default function ChatScreen() {
           const gamePlan = await generateGamePlan(gamePlanParams);
           console.log('✅ Game plan generated:', gamePlan.goalTitle);
           console.log('📊 Milestones count:', gamePlan.milestones.length);
+          console.log('📊 Full game plan:', JSON.stringify(gamePlan, null, 2));
+          
+          if (!gamePlan.milestones || gamePlan.milestones.length === 0) {
+            throw new Error('Generated game plan has no milestones');
+          }
           
           console.log('💾 Saving game plan to storage...');
           const saveSuccess = await addGamePlan(gamePlan);
           console.log('💾 Save result:', saveSuccess);
           
           if (!saveSuccess) {
-            throw new Error('Failed to save game plan');
+            throw new Error('Failed to save game plan to storage');
           }
           
           console.log('🎉 Goal created successfully!');
@@ -146,7 +172,7 @@ export default function ChatScreen() {
           console.log('🚀 Navigating to goals page...');
           setTimeout(() => {
             console.log('🚀 Navigating now');
-            router.push('/(tabs)');
+            router.push('/');
           }, 1500);
         } catch (error: any) {
           console.error('❌ Error creating game plan:', error);
@@ -225,7 +251,7 @@ export default function ChatScreen() {
           {!isPremium && (
             <Pressable
               style={[styles.upgradeButton, { backgroundColor: colors.accent }]}
-              onPress={() => router.push('/(tabs)/subscription')}
+              onPress={() => router.push('/subscription')}
             >
               <Crown color="#FFF" size={16} />
             </Pressable>
