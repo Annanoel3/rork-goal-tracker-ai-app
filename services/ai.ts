@@ -98,8 +98,19 @@ export const getOpenAIStatus = () => ({
   isInitialized: isOpenAIInitialized(),
 });
 
-const preinitOk = tryInitFromEnvSync();
-console.log('OpenAI pre-init from env (module load):', preinitOk);
+const preinitSyncOk = tryInitFromEnvSync();
+console.log('OpenAI pre-init from env (module load):', preinitSyncOk);
+
+void (async () => {
+  try {
+    if (!preinitSyncOk) {
+      const loaded = await loadOpenAIKey();
+      console.log('OpenAI async init (module load):', loaded, 'has client:', openaiClient !== null);
+    }
+  } catch (error) {
+    console.error('OpenAI async init failed (module load):', error);
+  }
+})();
 
 const SYSTEM_PROMPT = `You are a supportive personal assistant helping users achieve their goals through thoughtful, adaptive planning. You guide without overwhelming.
 
