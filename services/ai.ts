@@ -5,25 +5,49 @@ import { Goal, GamePlan } from '@/types';
 const API_KEY_STORAGE = '@openai_api_key';
 
 let openaiClient: OpenAI | null = null;
+let initPromise: Promise<boolean> | null = null;
+
+function getEnvApiKey(): string | null {
+  const key = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+  const trimmed = typeof key === 'string' ? key.trim() : '';
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function tryInitFromEnvSync(): boolean {
+  if (openaiClient) return true;
+  const envKey = getEnvApiKey();
+  if (!envKey) return false;
+
+  try {
+    openaiClient = new OpenAI({
+      apiKey: envKey,
+      dangerouslyAllowBrowser: true,
+    });
+    console.log('OpenAI client initialized from env');
+    return true;
+  } catch (error) {
+    console.error('Error initializing OpenAI client from env:', error);
+    return false;
+  }
+}
 
 export const initializeOpenAI = async (apiKey: string) => {
+  const trimmed = apiKey.trim();
   openaiClient = new OpenAI({
-    apiKey,
+    apiKey: trimmed,
     dangerouslyAllowBrowser: true,
   });
-  await AsyncStorage.setItem(API_KEY_STORAGE, apiKey);
+  await AsyncStorage.setItem(API_KEY_STORAGE, trimmed);
 };
 
 export const loadOpenAIKey = async () => {
-  const envApiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+  const envApiKey = getEnvApiKey();
   const storedApiKey = await AsyncStorage.getItem(API_KEY_STORAGE);
-  const apiKey = envApiKey || storedApiKey;
-  
-  console.log('Loading OpenAI key...');
-  console.log('Env key exists:', !!envApiKey);
-  console.log('Env key value:', envApiKey ? `${envApiKey.substring(0, 10)}...` : 'none');
-  console.log('Stored key exists:', !!storedApiKey);
-  
+  const storedTrimmed = typeof storedApiKey === 'string' ? storedApiKey.trim() : '';
+  const apiKey = envApiKey ?? (storedTrimmed.length > 0 ? storedTrimmed : null);
+
+  console.log('Loading OpenAI key... env key exists:', !!envApiKey, 'stored key exists:', !!storedApiKey);
+
   if (apiKey) {
     try {
       openaiClient = new OpenAI({
@@ -31,7 +55,7 @@ export const loadOpenAIKey = async () => {
         dangerouslyAllowBrowser: true,
       });
       console.log('OpenAI client initialized successfully');
-      if (envApiKey && !storedApiKey) {
+      if (envApiKey && storedTrimmed.length === 0) {
         await AsyncStorage.setItem(API_KEY_STORAGE, envApiKey);
         console.log('Saved env API key to storage');
       }
@@ -41,19 +65,33 @@ export const loadOpenAIKey = async () => {
       return false;
     }
   }
+
   console.log('No OpenAI key found');
   return false;
 };
 
+export const ensureOpenAIInitialized = async (): Promise<boolean> => {
+  if (tryInitFromEnvSync()) return true;
+  if (openaiClient) return true;
+
+  if (!initPromise) {
+    initPromise = loadOpenAIKey().finally(() => {
+      initPromise = null;
+    });
+  }
+
+  const ok = await initPromise;
+  return ok && openaiClient !== null;
+};
+
 export const isOpenAIInitialized = () => {
-  const hasEnvKey = !!process.env.EXPO_PUBLIC_OPENAI_API_KEY;
   const hasClient = openaiClient !== null;
-  console.log('Checking OpenAI status - env key:', hasEnvKey, 'client:', hasClient);
+  console.log('Checking OpenAI status - client:', hasClient, 'env key exists:', !!getEnvApiKey());
   return hasClient;
 };
 
 export const getOpenAIStatus = () => ({
-  hasEnvKey: !!process.env.EXPO_PUBLIC_OPENAI_API_KEY,
+  hasEnvKey: !!getEnvApiKey(),
   hasClient: openaiClient !== null,
   isInitialized: isOpenAIInitialized(),
 });
@@ -246,7 +284,8 @@ export const chatWithAI = async (
   messages: { role: 'user' | 'assistant' | 'system'; content: string }[],
   onStream?: (text: string) => void
 ): Promise<string> => {
-  if (!openaiClient) {
+  const ok = await ensureOpenAIInitialized();
+  if (!ok || !openaiClient) {
     throw new Error('OpenAI not initialized. Please add your API key in settings.');
   }
 
@@ -281,7 +320,8 @@ export const chatWithAI = async (
 export const generateGoalFromConversation = async (
   conversationHistory: { role: 'user' | 'assistant'; content: string }[]
 ): Promise<Goal> => {
-  if (!openaiClient) {
+  const ok = await ensureOpenAIInitialized();
+  if (!ok || !openaiClient) {
     throw new Error('OpenAI not initialized. Please add your API key in settings.');
   }
 
@@ -352,7 +392,8 @@ ${conversationHistory.map(m => `${m.role}: ${m.content}`).join('\n')}`;
 };
 
 export const generateGamePlan = async (params: GamePlanGenerationParams): Promise<GamePlan> => {
-  if (!openaiClient) {
+  const ok = await ensureOpenAIInitialized();
+  if (!ok || !openaiClient) {
     throw new Error('OpenAI not initialized. Please add your API key in settings.');
   }
 
